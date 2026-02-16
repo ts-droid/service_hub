@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
+    .card { background: #1e293b; border: none; padding: 2.5rem; border-radius: 1.5rem; width: 480px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+    .text-muted { color: #94a3b8 !important; }
+    .btn-primary { background: #3b82f6; border: none; padding: 12px; font-weight: 600; }
+    .group-select { background: #0f172a; border: 1px solid #334155; border-radius: 0.5rem; padding: 10px; margin-bottom: 1rem; }
+    .form-check-label { font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 class="mb-3 fw-bold text-center">Vendora Support Hub</h2>
+    <p class="text-muted text-center mb-4">Anslut ditt konto och välj de avdelningar du arbetar med.</p>
+
+    <div class="mb-3">
+      <label class="small fw-bold text-muted mb-1">Ditt namn</label>
+      <input type="text" id="userName" class="form-control bg-dark text-white border-secondary" placeholder="Förnamn Efternamn">
+    </div>
+
+    <div class="mb-4">
+      <label class="small fw-bold text-muted mb-2">Dina grupper</label>
+      <div class="group-select">
+        <div class="row">
+          <div class="col-6">
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="SUPPORT" id="g1" checked><label class="form-check-label" for="g1">Support</label></div>
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="RMA" id="g2"><label class="form-check-label" for="g2">RMA</label></div>
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="LOGISTICS" id="g3"><label class="form-check-label" for="g3">Logistics</label></div>
+          </div>
+          <div class="col-6">
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="SALES" id="g4"><label class="form-check-label" for="g4">Sales</label></div>
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="MARKETING" id="g5"><label class="form-check-label" for="g5">Marketing</label></div>
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="FINANCE" id="g6"><label class="form-check-label" for="g6">Finance</label></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="register()" id="regBtn" class="btn btn-primary w-100 mb-3 shadow">Koppla konto</button>
+  </div>
+
+  <script>
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+      if (res.status === 401) {
+        window.location.href = '/auth/google';
+        return null;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Request failed');
+      }
+      return res.json();
+    }
+
+    async function register() {
+      const name = document.getElementById('userName').value.trim();
+      const selectedGroups = Array.from(document.querySelectorAll('.grp-check:checked')).map(cb => cb.value).join(',');
+
+      if (!name) return alert("Ange ditt namn");
+      if (!selectedGroups) return alert("Välj minst en grupp");
+
+      const btn = document.getElementById('regBtn');
+      btn.disabled = true; btn.innerHTML = "Ansluter...";
+
+      await api('/users/register', { method: 'POST', body: JSON.stringify({ name, group: selectedGroups }) });
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

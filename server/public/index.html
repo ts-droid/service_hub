@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f6f7fb; font-family: 'Segoe UI', sans-serif; }
+    .ticket-card { border-left: 5px solid #0d6efd; cursor: pointer; transition: 0.2s; position: relative; border-radius: 8px; }
+    .ticket-card:hover { transform: translateX(5px); background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .ticket-meta { font-size: 0.85rem; color: #6c757d; }
+    .history-container { max-height: 350px; overflow-y: auto; background: #fff; border-radius: 8px; padding: 15px; border: 1px solid #eee; }
+    .ai-box { background: #e7f5ff; border: 1px solid #a5d8ff; border-radius: 8px; padding: 15px; font-style: italic; }
+    .locked-badge { font-size: 0.7rem; background: #ffec99; color: #862e12; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    .status-wait { background-color: #6f42c1 !important; color: white; }
+
+    .priority-alert {
+      position: absolute; top: 10px; right: 10px;
+      background: #ff4136; color: white; font-size: 0.65rem;
+      padding: 2px 8px; border-radius: 10px; font-weight: bold;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+    .nav-tabs .nav-link { cursor: pointer; color: #495057; font-weight: 500; border: none; padding: 12px 20px; }
+    .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd !important; background: transparent; }
+
+    .msg-bubble { margin-bottom: 15px; padding: 10px; border-radius: 8px; background: #f8f9fa; border: 1px solid #f1f1f1; }
+    .msg-header { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px; color: #0d6efd; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark p-3 shadow-sm">
+    <div class="container d-flex justify-content-between">
+      <span class="navbar-brand fw-bold">Vendora Support Hub</span>
+      <div id="adminBtnContainer"></div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <ul class="nav nav-tabs mb-4 border-0 shadow-sm bg-white rounded px-2" id="mainTabs">
+      <li class="nav-item"><a class="nav-link active" onclick="setTab(this, 'Nytt')">Nytt</a></li>
+      <li class="nav-item"><a class="nav-link" onclick="setTab(this, 'Mina Pågående')">Mina Pågående</a></li>
+      <li class="nav-item"><a class="nav-link" onclick="setTab(this, 'Väntar')">Väntar</a></li>
+      <li class="nav-item"><a class="nav-link" onclick="setTab(this, 'Löst')">Löst</a></li>
+    </ul>
+
+    <div class="row g-2 mb-3 align-items-center">
+      <div class="col-md-4">
+        <label class="small fw-bold text-muted ms-1">Filter Grupp:</label>
+        <select id="filterGroup" class="form-select shadow-sm" onchange="refresh()"></select>
+      </div>
+      <div class="col-md-2 mt-auto">
+        <button class="btn btn-primary w-100 shadow-sm" onclick="refresh()">Uppdatera</button>
+      </div>
+    </div>
+
+    <div id="ticketContainer" class="row">Laddar ärenden...</div>
+  </div>
+
+  <div class="modal fade" id="ticketModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg border-0">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-light border-0">
+          <h5 class="modal-title fw-bold" id="mSubject">Ärende</h5>
+          <button type="button" class="btn-close" onclick="closeModalCleanly()"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-center mb-4 p-2 bg-light rounded">
+            <div class="d-flex gap-2 align-items-center">
+              <span class="small fw-bold text-muted">Flytta till:</span>
+              <select id="mGroup" class="form-select form-select-sm w-auto">
+                <option value="SUPPORT">SUPPORT</option>
+                <option value="RMA">RMA</option>
+                <option value="FINANCE">FINANCE</option>
+                <option value="LOGISTICS">LOGISTICS</option>
+                <option value="MARKETING">MARKETING</option>
+                <option value="SALES">SALES</option>
+              </select>
+              <button class="btn btn-sm btn-primary" onclick="doMove()">Spara & Flytta</button>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-danger btn-sm" onclick="doBlock()">Blockera</button>
+              <button class="btn btn-outline-success btn-sm" onclick="doDelete()">Markera Löst</button>
+            </div>
+          </div>
+
+          <div id="mHistory" class="history-container mb-3 shadow-sm"></div>
+
+          <label class="small fw-bold mb-1 text-primary">AI Svarsförslag (Gemini):</label>
+          <div id="mAi" class="ai-box mb-3 small text-muted shadow-sm">AI tänker...</div>
+
+          <textarea id="mReply" class="form-control shadow-sm mb-2" rows="5" placeholder="Skriv ditt svar... ID inkluderas automatiskt."></textarea>
+        </div>
+        <div class="modal-footer bg-light border-0">
+          <button class="btn btn-success w-100 fw-bold shadow-sm p-3" onclick="doReply()">SKICKA SVAR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const esc = (s) => String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    let activeId = null;
+    let currentSenderEmail = "";
+    let currentStatusTab = "Nytt";
+    const tModal = new bootstrap.Modal(document.getElementById('ticketModal'));
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+      if (res.status === 401) {
+        window.location.href = '/auth/google';
+        return null;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Request failed');
+      }
+      return res.json();
+    }
+
+    window.onload = async () => {
+      const me = await api('/me');
+      if (!me) return;
+      if (me.isAdmin) {
+        document.getElementById('adminBtnContainer').innerHTML =
+          `<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">Admin</a>`;
+      }
+      loadFilters();
+    };
+
+    function setTab(el, status) {
+      document.querySelectorAll('#mainTabs .nav-link').forEach(link => link.classList.remove('active'));
+      el.classList.add('active');
+      currentStatusTab = status;
+      refresh();
+    }
+
+    async function loadFilters() {
+      const data = await api('/groups');
+      if (!data) return;
+      document.getElementById('filterGroup').innerHTML = data.groups.map(g => `<option value="${g}">${esc(g)}</option>`).join('');
+      setTimeout(refresh, 200);
+    }
+
+    async function refresh() {
+      const filters = { group: document.getElementById('filterGroup').value, status: currentStatusTab };
+      const qs = new URLSearchParams(filters).toString();
+      const tickets = await api(`/tickets?${qs}`);
+      if (!tickets) return;
+
+      const container = document.getElementById('ticketContainer');
+      if (!tickets.length) {
+        container.innerHTML = '<div class="text-center p-5 text-muted"><h4>🎉</h4>Inga ärenden här just nu.</div>';
+        return;
+      }
+      container.innerHTML = tickets.map(t => `
+        <div class="col-12 mb-2">
+          <div class="card p-3 shadow-sm border-0 ticket-card" onclick="openTicket('${esc(t.ID)}', '${esc(t.Subject)}', '${esc(t.Sender)}')">
+            ${t.Priority === 'NYTT SVAR' ? '<div class="priority-alert">NYTT SVAR</div>' : ''}
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="pe-5">
+                <h6 class="mb-1 fw-bold">${esc(t.Subject)}</h6>
+                <div class="ticket-meta">
+                  <span class="text-dark fw-medium">${esc(t.Sender)}</span> • ${esc(t.ID)}
+                  ${t.Owner ? `<span class="ms-2 locked-badge">🔒 ${esc(t.Owner.split('@')[0])}</span>` : ''}
+                </div>
+              </div>
+              <div class="badge ${t.Status === 'Pågår' ? 'bg-warning text-dark' : (t.Status === 'Väntar' ? 'status-wait' : 'bg-primary')} shadow-sm">${esc(t.Status)}</div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    async function openTicket(id, subject, sender) {
+      activeId = id;
+      currentSenderEmail = sender;
+      document.getElementById('mSubject').innerText = subject;
+      document.getElementById('mHistory').innerHTML = '<div class="p-3 text-center text-muted">Laddar historik...</div>';
+      document.getElementById('mAi').innerText = "Gemini analyserar och tar fram ett svarsförslag...";
+      document.getElementById('mReply').value = "";
+      tModal.show();
+
+      const res = await api(`/tickets/${id}`);
+      if (!res) return;
+      document.getElementById('mHistory').innerHTML = res.messages.map(m => `
+        <div class="msg-bubble shadow-sm">
+          <div class="msg-header">
+            <span class="fw-bold">${esc(m.from)}</span>
+            <span class="text-muted">${new Date(m.date).toLocaleString()}</span>
+          </div>
+          <div class="small" style="white-space:pre-wrap;">${esc(m.body)}</div>
+        </div>`).join('');
+
+      if (res.messages && res.messages.length > 0) {
+        const lastMsgText = res.messages[res.messages.length - 1].body;
+        if (lastMsgText && lastMsgText !== "Ingen text tillgänglig.") {
+          const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
+          if (ai && ai.text) {
+            document.getElementById('mAi').innerText = ai.text;
+            document.getElementById('mReply').value = ai.text;
+          }
+        } else {
+          document.getElementById('mAi').innerText = "Kunde inte läsa innehållet för AI-förslag.";
+        }
+      }
+    }
+
+    function closeModalCleanly() { tModal.hide(); refresh(); }
+
+    async function doReply() {
+      const reply = document.getElementById('mReply').value;
+      if (!reply) return alert("Vänligen skriv ett svar.");
+      await api(`/tickets/${activeId}/reply`, { method: 'POST', body: JSON.stringify({ text: reply }) });
+      alert('Svar registrerat.');
+      tModal.hide();
+      refresh();
+    }
+
+    async function doMove() {
+      const targetGroup = document.getElementById('mGroup').value;
+      if (confirm(`Flytta till ${targetGroup}? Ägare nollställs.`)) {
+        await api(`/tickets/${activeId}/move`, { method: 'POST', body: JSON.stringify({ group: targetGroup }) });
+        tModal.hide();
+        refresh();
+      }
+    }
+
+    async function doBlock() {
+      if (confirm(`Blockera ${currentSenderEmail}?`)) {
+        await api(`/tickets/${activeId}/block`, { method: 'POST', body: JSON.stringify({ email: currentSenderEmail }) });
+        tModal.hide();
+        refresh();
+      }
+    }
+
+    async function doDelete() {
+      await api(`/tickets/${activeId}/status`, { method: 'POST', body: JSON.stringify({ status: 'Löst' }) });
+      tModal.hide();
+      refresh();
+    }
+  </script>
+</body>
+</html>

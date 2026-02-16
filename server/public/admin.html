@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f6f7fb; font-family: 'Segoe UI', sans-serif; }
+    .card { border: none; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark p-3 shadow-sm">
+    <div class="container d-flex justify-content-between">
+      <span class="navbar-brand fw-bold">Vendora Support Hub</span>
+      <div><a class="btn btn-outline-light btn-sm" href="/">Tillbaka</a></div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card p-4 shadow-sm">
+          <h5 class="fw-bold mb-3">Användare</h5>
+          <div id="usersList" class="small text-muted">Laddar...</div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card p-4 shadow-sm">
+          <h5 class="fw-bold mb-3">Blacklist</h5>
+          <div id="blacklist" class="small text-muted">Laddar...</div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card p-4 shadow-sm">
+          <h5 class="fw-bold mb-3">Config</h5>
+          <div class="row g-2">
+            <div class="col-md-4"><input id="cfgKey" class="form-control" placeholder="KEYWORDS_SUPPORT" /></div>
+            <div class="col-md-6"><input id="cfgValue" class="form-control" placeholder="komma,separerade,ord" /></div>
+            <div class="col-md-2"><button class="btn btn-primary w-100" onclick="saveConfig()">Spara</button></div>
+          </div>
+          <small class="text-muted">Ex: AI_PROMPT eller KEYWORDS_RMA/FINANCE/LOGISTICS/SUPPORT</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+      if (res.status === 401) {
+        window.location.href = '/auth/google';
+        return null;
+      }
+      if (res.status === 403) {
+        alert('Ingen adminbehörighet');
+        window.location.href = '/';
+        return null;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Request failed');
+      }
+      return res.json();
+    }
+
+    async function loadUsers() {
+      const users = await api('/admin/users');
+      if (!users) return;
+      document.getElementById('usersList').innerHTML = users.map(u =>
+        `<div class="d-flex justify-content-between border-bottom py-2">
+          <div>${u.name} <span class="text-muted">(${u.email})</span><br><small>${u.group} • ${u.role}</small></div>
+          <button class="btn btn-sm btn-outline-danger" onclick="delUser('${u.email}')">Ta bort</button>
+        </div>`
+      ).join('');
+    }
+
+    async function loadBlacklist() {
+      const list = await api('/admin/blacklist');
+      if (!list) return;
+      document.getElementById('blacklist').innerHTML = list.map(b =>
+        `<div class="d-flex justify-content-between border-bottom py-2">
+          <div>${b.email}<br><small class="text-muted">${new Date(b.blocked_at).toLocaleString()}</small></div>
+          <button class="btn btn-sm btn-outline-success" onclick="unblock('${b.email}')">Avblockera</button>
+        </div>`
+      ).join('');
+    }
+
+    async function delUser(email) {
+      if (!confirm(`Ta bort ${email}?`)) return;
+      await api(`/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+      loadUsers();
+    }
+
+    async function unblock(email) {
+      await api(`/admin/blacklist/${encodeURIComponent(email)}`, { method: 'DELETE' });
+      loadBlacklist();
+    }
+
+    async function saveConfig() {
+      const key = document.getElementById('cfgKey').value.trim();
+      const value = document.getElementById('cfgValue').value.trim();
+      if (!key) return alert('Ange key');
+      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key, value }) });
+      alert('Sparat');
+    }
+
+    loadUsers();
+    loadBlacklist();
+  </script>
+</body>
+</html>
