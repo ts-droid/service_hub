@@ -26,7 +26,7 @@ npm run dev
 1. Create a new Railway project
 2. Add Postgres plugin
 3. Add a Node service pointing to this `server/` directory
-4. Set environment variables from `.env.example`
+4. Set environment variables from `.env.example` in Railway (do not commit or store `DATABASE_URL` in the repo)
 5. Run schema once in Railway shell:
 
 ```bash
