@@ -33,6 +33,12 @@ npm run dev
 psql "$DATABASE_URL" -f db/schema.sql
 ```
 
+6. Run seed data (config defaults):
+
+```bash
+psql "$DATABASE_URL" -f db/seed.sql
+```
+
 6. Add a Railway cron to hit `POST /jobs/gmail-sync` with `x-job-token: JOB_TOKEN`
 
 ## Auth (MVP)
