@@ -217,17 +217,8 @@
       btn.textContent = 'Synkar...';
       resultBox.textContent = '';
       try {
-        const res = await api('/admin/jobs/gmail-sync', { method: 'POST' });
-        const details = res.stats
-          ? ` | users: ${res.stats.usersScanned}, listade: ${res.stats.threadsListed}, hämtade: ${res.stats.threadsFetched}, skip-internal: ${res.stats.skippedInternalSender}, skip-no-group: ${res.stats.skippedNoGroup}, skip-existing: ${res.stats.skippedExistingThread}, list-errors: ${res.stats.userListErrors}, thread-errors: ${res.stats.threadFetchErrors}`
-          : '';
-        const startInfo = res.startTimeUsed
-          ? ` Start: ${res.startTimeUsed} (${res.startTimeReason || 'unknown'}).`
-          : '';
-        const errorDetail = (res.stats?.userListErrorDetails || []).length
-          ? ` Gmail-fel: ${res.stats.userListErrorDetails.map(e => `${e.email}: ${e.error}`).join(' | ')}`
-          : '';
-        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.${details}${startInfo}${errorDetail}`;
+        await api('/admin/jobs/gmail-sync', { method: 'POST' });
+        resultBox.textContent = '';
       } catch (err) {
         resultBox.textContent = `Fel: ${err.message}`;
       } finally {
