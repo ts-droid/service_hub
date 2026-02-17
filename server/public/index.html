@@ -12,6 +12,14 @@
     .history-container { max-height: 350px; overflow-y: auto; background: #fff; border-radius: 8px; padding: 15px; border: 1px solid #eee; }
     .ai-box { background: #e7f5ff; border: 1px solid #a5d8ff; border-radius: 8px; padding: 15px; font-style: italic; }
     .locked-badge { font-size: 0.7rem; background: #ffec99; color: #862e12; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    .group-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+    .group-support { background: #e7f5ff; color: #1864ab; }
+    .group-rma { background: #fff4e6; color: #d9480f; }
+    .group-logistics { background: #ebfbee; color: #2b8a3e; }
+    .group-finance { background: #eef2ff; color: #3730a3; }
+    .group-marketing { background: #fff0f6; color: #a61e4d; }
+    .group-sales { background: #f8f0fc; color: #862e9c; }
+    .group-default { background: #f1f3f5; color: #495057; }
     .status-wait { background-color: #6f42c1 !important; color: white; }
 
     .priority-alert {
@@ -112,6 +120,16 @@
       if (Number.isNaN(d.getTime())) return "";
       return d.toLocaleString('sv-SE');
     };
+    const groupClass = (group) => {
+      const g = String(group || '').toUpperCase();
+      if (g === 'SUPPORT') return 'group-support';
+      if (g === 'RMA') return 'group-rma';
+      if (g === 'LOGISTICS') return 'group-logistics';
+      if (g === 'FINANCE') return 'group-finance';
+      if (g === 'MARKETING') return 'group-marketing';
+      if (g === 'SALES') return 'group-sales';
+      return 'group-default';
+    };
 
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
@@ -173,6 +191,7 @@
                 <div class="ticket-meta">
                   <span class="text-dark fw-medium">${esc(t.Sender)}</span> • ${esc(t.ID)}
                   ${t.CreatedAt ? `<span class="ms-2">• Inkommen: ${esc(formatDateTime(t.CreatedAt))}</span>` : ''}
+                  ${t.Group ? `<span class="ms-2 group-badge ${groupClass(t.Group)}">${esc(t.Group)}</span>` : ''}
                   ${t.Owner ? `<span class="ms-2 locked-badge">🔒 ${esc(t.Owner.split('@')[0])}</span>` : ''}
                 </div>
               </div>
