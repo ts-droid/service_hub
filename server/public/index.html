@@ -106,6 +106,12 @@
     let currentSenderEmail = "";
     let currentStatusTab = "Nytt";
     const tModal = new bootstrap.Modal(document.getElementById('ticketModal'));
+    const formatDateTime = (v) => {
+      if (!v) return "";
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return "";
+      return d.toLocaleString('sv-SE');
+    };
 
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
@@ -164,6 +170,7 @@
                 <h6 class="mb-1 fw-bold">${esc(t.Subject)}</h6>
                 <div class="ticket-meta">
                   <span class="text-dark fw-medium">${esc(t.Sender)}</span> • ${esc(t.ID)}
+                  ${t.CreatedAt ? `<span class="ms-2">• Inkommen: ${esc(formatDateTime(t.CreatedAt))}</span>` : ''}
                   ${t.Owner ? `<span class="ms-2 locked-badge">🔒 ${esc(t.Owner.split('@')[0])}</span>` : ''}
                 </div>
               </div>

@@ -149,7 +149,7 @@ app.get('/tickets', requireAuth, async (req, res) => {
     params.push(group);
   }
 
-  const sql = `SELECT ticket_id, subject, status, sender_email, "group", owner_email, priority
+  const sql = `SELECT ticket_id, subject, status, sender_email, "group", owner_email, priority, created_at
                FROM tickets
                ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
                ORDER BY last_message_at DESC`;
@@ -162,7 +162,8 @@ app.get('/tickets', requireAuth, async (req, res) => {
     Sender: t.sender_email,
     Group: t.group,
     Owner: t.owner_email,
-    Priority: t.priority
+    Priority: t.priority,
+    CreatedAt: t.created_at
   })));
 });
 
