@@ -106,7 +106,8 @@ async function fetchNewEmails() {
     skippedMissingSender: 0,
     skippedNoGroup: 0,
     userListErrors: 0,
-    threadFetchErrors: 0
+    threadFetchErrors: 0,
+    userListErrorDetails: []
   };
 
   const startInfo = resolveStartTime();
@@ -137,6 +138,12 @@ async function fetchNewEmails() {
       stats.threadsListed += threads.length;
     } catch (err) {
       stats.userListErrors += 1;
+      const detail =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.error_description ||
+        err?.message ||
+        'unknown_list_error';
+      stats.userListErrorDetails.push({ email: user.email, error: detail });
       continue;
     }
 

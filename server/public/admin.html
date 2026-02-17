@@ -218,7 +218,10 @@
         const startInfo = res.startTimeUsed
           ? ` Start: ${res.startTimeUsed} (${res.startTimeReason || 'unknown'}).`
           : '';
-        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.${details}${startInfo}`;
+        const errorDetail = (res.stats?.userListErrorDetails || []).length
+          ? ` Gmail-fel: ${res.stats.userListErrorDetails.map(e => `${e.email}: ${e.error}`).join(' | ')}`
+          : '';
+        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.${details}${startInfo}${errorDetail}`;
       } catch (err) {
         resultBox.textContent = `Fel: ${err.message}`;
       } finally {
