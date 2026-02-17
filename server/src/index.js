@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser');
 const db = require('./db');
 const { GROUPS, makeId, nowIso } = require('./utils');
 const { requireAuth, requireAdmin, requireJobToken } = require('./middleware');
-const { fetchNewEmails } = require('./gmail');
+const { fetchNewEmails, sendReplyFromUser, GMAIL_READ_SCOPE, GMAIL_SEND_SCOPE } = require('./gmail');
 const { getGeminiResponse } = require('./gemini');
 const { getOauthClient } = require('./google-oauth');
 const { signUser, setSessionCookie, clearSessionCookie } = require('./auth');
@@ -38,6 +38,9 @@ app.get('/admin', requireAuth, requireAdmin, (req, res) => {
 app.get('/me', requireAuth, async (req, res) => {
   const email = req.user.email.toLowerCase();
   const userRes = await db.query('SELECT name, email, "group", role, active FROM users WHERE email = $1', [email]);
+  const oauthRes = await db.query('SELECT scope, refresh_token FROM user_oauth_tokens WHERE email = $1', [email]);
+  const scope = oauthRes.rows[0]?.scope || '';
+  const gmailConnected = !!oauthRes.rows[0]?.refresh_token;
   const adminList = (process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
   const isAdmin = adminList.includes(email) || (userRes.rows[0] && String(userRes.rows[0].role).toLowerCase() === 'admin');
   res.json({
@@ -45,14 +48,22 @@ app.get('/me', requireAuth, async (req, res) => {
     name: req.user.name || userRes.rows[0]?.name || '',
     isRegistered: !!userRes.rows[0],
     isAdmin,
-    group: userRes.rows[0]?.group || ''
+    group: userRes.rows[0]?.group || '',
+    gmailConnected,
+    gmailReadEnabled: scope.includes(GMAIL_READ_SCOPE),
+    gmailSendEnabled: scope.includes(GMAIL_SEND_SCOPE)
   });
 });
 
 app.get('/auth/google', (req, res) => {
   const client = getOauthClient();
   if (!client) return res.status(500).send('Google OAuth is not configured');
-  const scopes = ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'];
+  const scopes = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    GMAIL_READ_SCOPE,
+    GMAIL_SEND_SCOPE
+  ];
   const url = client.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: scopes });
   res.redirect(url);
 });
@@ -74,6 +85,27 @@ app.get('/auth/google/callback', async (req, res) => {
     if (!email || !email.endsWith(`@${process.env.ALLOWED_DOMAIN || 'vendora.se'}`)) {
       return res.status(403).send('Åtkomst nekad');
     }
+
+    const currentTokenRes = await db.query('SELECT refresh_token, scope FROM user_oauth_tokens WHERE email = $1', [email]);
+    const existingRefresh = currentTokenRes.rows[0]?.refresh_token || null;
+    const refreshToken = tokens.refresh_token || existingRefresh;
+    const scope = tokens.scope || currentTokenRes.rows[0]?.scope || '';
+    const expiryIso = tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null;
+
+    await db.query(
+      `INSERT INTO user_oauth_tokens
+        (email, refresh_token, access_token, token_type, scope, expiry_date, updated_at)
+       VALUES
+        ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (email) DO UPDATE SET
+        refresh_token = EXCLUDED.refresh_token,
+        access_token = EXCLUDED.access_token,
+        token_type = EXCLUDED.token_type,
+        scope = EXCLUDED.scope,
+        expiry_date = EXCLUDED.expiry_date,
+        updated_at = EXCLUDED.updated_at`,
+      [email, refreshToken, tokens.access_token || null, tokens.token_type || null, scope, expiryIso, nowIso()]
+    );
 
     const token = signUser({ email, name });
     setSessionCookie(res, token);
@@ -189,7 +221,21 @@ app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
   const text = (req.body?.text || '').trim();
   if (!text) return res.status(400).json({ error: 'text required' });
 
-  await db.query('UPDATE tickets SET status = $1, updated_at = $2 WHERE ticket_id = $3', ['Väntar', nowIso(), ticketId]);
+  const ticketRes = await db.query('SELECT subject, sender_email, thread_id FROM tickets WHERE ticket_id = $1', [ticketId]);
+  if (!ticketRes.rows[0]) return res.status(404).json({ error: 'ticket not found' });
+  const ticket = ticketRes.rows[0];
+
+  const sendResult = await sendReplyFromUser(
+    req.user.email,
+    ticketId,
+    ticket.sender_email,
+    ticket.subject,
+    text,
+    ticket.thread_id
+  );
+  if (!sendResult.ok) return res.status(400).json({ error: sendResult.error });
+
+  await db.query('UPDATE tickets SET status = $1, updated_at = $2, last_message_at = $3 WHERE ticket_id = $4', ['Väntar', nowIso(), nowIso(), ticketId]);
   await db.query('INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)', [ticketId, req.user.email, 'REPLY', 'Reply stored']);
   res.json({ ok: true });
 });
@@ -295,7 +341,28 @@ app.post('/jobs/gmail-sync', requireJobToken, async (req, res) => {
   res.json(result);
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`API listening on ${port}`);
+async function ensureRuntimeSchema() {
+  await db.query(`CREATE TABLE IF NOT EXISTS user_oauth_tokens (
+    email TEXT PRIMARY KEY,
+    refresh_token TEXT,
+    access_token TEXT,
+    token_type TEXT,
+    scope TEXT,
+    expiry_date TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+}
+
+async function start() {
+  await ensureRuntimeSchema();
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`API listening on ${port}`);
+  });
+}
+
+start().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });

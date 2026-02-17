@@ -2,25 +2,35 @@ const { google } = require('googleapis');
 const db = require('./db');
 const { makeId, normalizeEmails, isInternal } = require('./utils');
 
-function getGmailClient() {
+const GMAIL_READ_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+
+function hasScope(scopeString, requiredScope) {
+  return String(scopeString || '').split(/\s+/).includes(requiredScope);
+}
+
+function getOauthClient(refreshToken) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-  if (!clientId || !clientSecret || !refreshToken) {
-    return null;
-  }
+  if (!clientId || !clientSecret || !refreshToken) return null;
 
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
   oauth2Client.setCredentials({ refresh_token: refreshToken });
-  return google.gmail({ version: 'v1', auth: oauth2Client });
+  return oauth2Client;
+}
+
+async function getUserToken(email) {
+  const result = await db.query(
+    'SELECT email, refresh_token, access_token, token_type, scope, expiry_date FROM user_oauth_tokens WHERE email = $1',
+    [String(email || '').toLowerCase()]
+  );
+  return result.rows[0] || null;
 }
 
 async function getConfigKeywords() {
   const result = await db.query('SELECT key, value FROM config');
   const map = {};
-  for (const row of result.rows) {
-    map[row.key] = row.value;
-  }
+  for (const row of result.rows) map[row.key] = row.value;
   const parse = (k) => (map[k] || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
   return {
     keywordsRma: parse('KEYWORDS_RMA'),
@@ -45,22 +55,21 @@ async function inferGroup(recipient, subject, body) {
   if (keys.keywordsFinance.some(k => content.includes(k))) return 'FINANCE';
   if (keys.keywordsLogistics.some(k => content.includes(k))) return 'LOGISTICS';
   if (keys.keywordsSupport.some(k => content.includes(k))) return 'SUPPORT';
-
   return null;
 }
 
 async function fetchNewEmails() {
-  const gmail = getGmailClient();
-  if (!gmail) {
-    return { ok: false, reason: 'gmail credentials missing' };
-  }
+  const usersRes = await db.query(
+    "SELECT email, refresh_token, scope FROM user_oauth_tokens WHERE refresh_token IS NOT NULL AND refresh_token <> ''"
+  );
+  const users = usersRes.rows.filter(u => hasScope(u.scope, GMAIL_READ_SCOPE));
+  if (!users.length) return { ok: false, reason: 'no users with gmail.readonly consent' };
 
   const startTime = process.env.START_TIME_ISO || '2026-02-11T20:00:00';
   const afterDate = new Date(startTime);
   const yyyy = afterDate.getUTCFullYear();
   const mm = String(afterDate.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(afterDate.getUTCDate()).padStart(2, '0');
-
   const query = `after:${yyyy}/${mm}/${dd} (to:support@vendora.se OR to:rma@vendora.se OR to:logistics@vendora.se OR to:invoice@vendora.se OR to:sales@vendora.se OR to:marketing@vendora.se)`;
 
   const existingThreads = await db.query('SELECT thread_id FROM tickets');
@@ -69,68 +78,134 @@ async function fetchNewEmails() {
   const blacklistRows = await db.query('SELECT email FROM blacklist');
   const blacklist = new Set(blacklistRows.rows.map(r => String(r.email).toLowerCase()));
 
-  const threadsRes = await gmail.users.threads.list({ userId: 'me', q: query, maxResults: 50 });
-  const threads = threadsRes.data.threads || [];
-
   let created = 0;
 
-  for (const t of threads) {
-    if (existingSet.has(t.id)) continue;
+  for (const user of users) {
+    const oauth2Client = getOauthClient(user.refresh_token);
+    if (!oauth2Client) continue;
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-    const thread = await gmail.users.threads.get({ userId: 'me', id: t.id, format: 'full' });
-    const messages = thread.data.messages || [];
-    if (!messages.length) continue;
-
-    const last = messages[messages.length - 1];
-    const headers = last.payload.headers || [];
-    const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
-
-    const from = getHeader('From');
-    const to = getHeader('To');
-    const subject = getHeader('Subject');
-    const sender = normalizeEmails(from)[0];
-    if (!sender) continue;
-    if (isInternal(from)) continue;
-    if (blacklist.has(sender.toLowerCase())) continue;
-
-    const body = extractPlainBody(last.payload);
-    const grp = await inferGroup(to, subject, body);
-    if (!grp) continue;
-
-    const ticketId = makeId('VEN');
-    const now = new Date().toISOString();
-    const lastDate = last.internalDate ? new Date(Number(last.internalDate)).toISOString() : now;
-
-    await db.query(
-      `INSERT INTO tickets
-        (ticket_id, created_at, updated_at, subject, status, priority, "group", owner_email, sender_email, thread_id, last_message_at, tags)
-       VALUES
-        ($1,$2,$3,$4,'Nytt','Normal',$5,NULL,$6,$7,$8,'')`,
-      [ticketId, now, now, `[${ticketId}] ${subject || ''}`.trim(), grp, sender, t.id, lastDate]
-    );
-
-    for (const m of messages) {
-      const mh = m.payload.headers || [];
-      const gh = (name) => mh.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
-      const mFrom = gh('From');
-      const mTo = gh('To');
-      const mSubject = gh('Subject');
-      const mBody = extractPlainBody(m.payload);
-      const mDate = m.internalDate ? new Date(Number(m.internalDate)).toISOString() : now;
-
-      await db.query(
-        `INSERT INTO messages
-          (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
-         VALUES
-          ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [makeId('MSG'), ticketId, mDate, mFrom, mTo, mSubject, mBody, m.id, t.id]
-      );
+    let threads;
+    try {
+      const threadsRes = await gmail.users.threads.list({ userId: 'me', q: query, maxResults: 50 });
+      threads = threadsRes.data.threads || [];
+    } catch (err) {
+      continue;
     }
 
-    created += 1;
+    for (const t of threads) {
+      if (existingSet.has(t.id)) continue;
+
+      let thread;
+      try {
+        thread = await gmail.users.threads.get({ userId: 'me', id: t.id, format: 'full' });
+      } catch (err) {
+        continue;
+      }
+
+      const messages = thread.data.messages || [];
+      if (!messages.length) continue;
+
+      const last = messages[messages.length - 1];
+      const headers = last.payload?.headers || [];
+      const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+
+      const from = getHeader('From');
+      const to = getHeader('To');
+      const subject = getHeader('Subject');
+      const sender = normalizeEmails(from)[0];
+      if (!sender || isInternal(from) || blacklist.has(sender.toLowerCase())) continue;
+
+      const body = extractPlainBody(last.payload);
+      const grp = await inferGroup(to, subject, body);
+      if (!grp) continue;
+
+      const ticketId = makeId('VEN');
+      const now = new Date().toISOString();
+      const lastDate = last.internalDate ? new Date(Number(last.internalDate)).toISOString() : now;
+
+      const insertTicket = await db.query(
+        `INSERT INTO tickets
+          (ticket_id, created_at, updated_at, subject, status, priority, "group", owner_email, sender_email, thread_id, last_message_at, tags)
+         VALUES
+          ($1,$2,$3,$4,'Nytt','Normal',$5,NULL,$6,$7,$8,'')
+         ON CONFLICT (thread_id) DO NOTHING`,
+        [ticketId, now, now, `[${ticketId}] ${subject || ''}`.trim(), grp, sender, t.id, lastDate]
+      );
+      if (!insertTicket.rowCount) {
+        existingSet.add(t.id);
+        continue;
+      }
+
+      for (const m of messages) {
+        const mh = m.payload?.headers || [];
+        const gh = (name) => mh.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+        const mFrom = gh('From');
+        const mTo = gh('To');
+        const mSubject = gh('Subject');
+        const mBody = extractPlainBody(m.payload);
+        const mDate = m.internalDate ? new Date(Number(m.internalDate)).toISOString() : now;
+
+        await db.query(
+          `INSERT INTO messages
+            (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
+           VALUES
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [makeId('MSG'), ticketId, mDate, mFrom, mTo, mSubject, mBody, m.id, t.id]
+        );
+      }
+
+      existingSet.add(t.id);
+      created += 1;
+    }
   }
 
   return { ok: true, created };
+}
+
+async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadId) {
+  const token = await getUserToken(userEmail);
+  if (!token || !token.refresh_token) return { ok: false, error: 'gmail not connected for user' };
+  if (!hasScope(token.scope, GMAIL_SEND_SCOPE)) return { ok: false, error: 'gmail.send scope missing' };
+
+  const oauth2Client = getOauthClient(token.refresh_token);
+  if (!oauth2Client) return { ok: false, error: 'oauth client unavailable' };
+  const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+  const safeSubject = subject && subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject || ''}`;
+  const message = [
+    `From: ${userEmail}`,
+    `To: ${to}`,
+    `Subject: ${safeSubject}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    '',
+    body
+  ].join('\r\n');
+
+  const raw = Buffer.from(message).toString('base64url');
+
+  try {
+    const sent = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw,
+        threadId: threadId || undefined
+      }
+    });
+
+    const now = new Date().toISOString();
+    await db.query(
+      `INSERT INTO messages
+        (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
+       VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [makeId('MSG'), ticketId, now, userEmail, to, safeSubject, body, sent.data.id || null, threadId || null]
+    );
+
+    return { ok: true, messageId: sent.data.id || null };
+  } catch (err) {
+    return { ok: false, error: 'gmail send failed' };
+  }
 }
 
 function extractPlainBody(payload) {
@@ -148,5 +223,8 @@ function extractPlainBody(payload) {
 }
 
 module.exports = {
-  fetchNewEmails
+  fetchNewEmails,
+  sendReplyFromUser,
+  GMAIL_READ_SCOPE,
+  GMAIL_SEND_SCOPE
 };

@@ -4,7 +4,7 @@
 Node/Express backend with Postgres schema that mirrors the Sheets structure.
 Includes:
 - Users, tickets, messages, config, logs, blacklist
-- Gmail sync job (Google OAuth refresh token)
+- Gmail sync job (per-user Google OAuth token)
 - Gemini reply helper
 
 ## Local run
@@ -65,7 +65,8 @@ Google OAuth login with cookie session:
 - `POST /jobs/gmail-sync`
 
 ## Notes
-- Gmail sync requires Google OAuth client + refresh token.
+- Gmail sync and sending replies use per-user OAuth tokens captured at Google login (`gmail.readonly` + `gmail.send`).
+- Existing users should log out and sign in again once to grant the Gmail scopes.
 - `config` keys used: `AI_PROMPT`, `KEYWORDS_RMA`, `KEYWORDS_FINANCE`, `KEYWORDS_LOGISTICS`, `KEYWORDS_SUPPORT`.
 
 ## Import data from CSV

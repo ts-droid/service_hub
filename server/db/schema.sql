@@ -56,6 +56,17 @@ CREATE TABLE IF NOT EXISTS blacklist (
   blocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS user_oauth_tokens (
+  email TEXT PRIMARY KEY,
+  refresh_token TEXT,
+  access_token TEXT,
+  token_type TEXT,
+  scope TEXT,
+  expiry_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_tickets_group_status ON tickets("group", status);
 CREATE INDEX IF NOT EXISTS idx_tickets_owner ON tickets(owner_email);
 CREATE INDEX IF NOT EXISTS idx_messages_ticket ON messages(ticket_id);
