@@ -70,13 +70,14 @@ async function inferGroup(recipient, subject, body) {
   const content = `${subject || ''} ${body || ''}`.toLowerCase();
 
   const keys = await getConfigKeywords();
+  const hasKeyword = (kw) => keywordMatches(content, kw);
   // Primary classifier: keywords in subject/body.
-  if (keys.keywordsRma.some(k => content.includes(k))) return 'RMA';
-  if (keys.keywordsFinance.some(k => content.includes(k))) return 'FINANCE';
-  if (keys.keywordsLogistics.some(k => content.includes(k))) return 'LOGISTICS';
-  if (keys.keywordsSales.some(k => content.includes(k))) return 'SALES';
-  if (keys.keywordsMarketing.some(k => content.includes(k))) return 'MARKETING';
-  if (keys.keywordsSupport.some(k => content.includes(k))) return 'SUPPORT';
+  if (keys.keywordsRma.some(hasKeyword)) return 'RMA';
+  if (keys.keywordsFinance.some(hasKeyword)) return 'FINANCE';
+  if (keys.keywordsLogistics.some(hasKeyword)) return 'LOGISTICS';
+  if (keys.keywordsSales.some(hasKeyword)) return 'SALES';
+  if (keys.keywordsMarketing.some(hasKeyword)) return 'MARKETING';
+  if (keys.keywordsSupport.some(hasKeyword)) return 'SUPPORT';
 
   // Fallback: infer from addressed mailbox alias.
   if (r.includes('rma@vendora.se')) return 'RMA';
@@ -86,6 +87,17 @@ async function inferGroup(recipient, subject, body) {
   if (r.includes('marketing@vendora.se')) return 'MARKETING';
   if (r.includes('support@vendora.se')) return 'SUPPORT';
   return null;
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function keywordMatches(content, keyword) {
+  const kw = String(keyword || '').trim().toLowerCase();
+  if (!kw) return false;
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegex(kw)}(?=[^\\p{L}\\p{N}]|$)`, 'iu');
+  return pattern.test(content);
 }
 
 async function fetchNewEmails() {
