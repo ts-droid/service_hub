@@ -14,6 +14,7 @@ const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use(express.static('public'));
+const GMAIL_SYNC_LOCK_KEY = 2026021701;
 
 async function logSyncRun(source, userEmail, payload) {
   const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
@@ -21,6 +22,44 @@ async function logSyncRun(source, userEmail, payload) {
     'INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)',
     [null, userEmail || null, 'GMAIL_SYNC', `[${source}] ${details}`]
   );
+}
+
+async function runGmailSyncWithLock(source, userEmail) {
+  const client = await db.pool.connect();
+  let txOpen = false;
+  try {
+    await client.query('BEGIN');
+    txOpen = true;
+    const lockRes = await client.query(
+      'SELECT pg_try_advisory_xact_lock($1::bigint) AS locked',
+      [GMAIL_SYNC_LOCK_KEY]
+    );
+    const locked = !!lockRes.rows[0]?.locked;
+    if (!locked) {
+      await client.query('ROLLBACK');
+      txOpen = false;
+      const payload = { ok: true, created: 0, skipped: true, reason: 'sync_already_running' };
+      await logSyncRun(source, userEmail, payload);
+      return payload;
+    }
+
+    const result = await fetchNewEmails();
+    await logSyncRun(source, userEmail, result);
+    await client.query('COMMIT');
+    txOpen = false;
+    return result;
+  } catch (err) {
+    const payload = { ok: false, error: err?.message || 'sync_failed' };
+    await logSyncRun(source, userEmail, payload);
+    if (txOpen) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_) {}
+    }
+    return payload;
+  } finally {
+    client.release();
+  }
 }
 
 app.get('/health', (req, res) => res.json({ ok: true }));
@@ -348,29 +387,15 @@ app.put('/admin/users/:email', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.post('/jobs/gmail-sync', requireJobToken, async (req, res) => {
-  try {
-    const result = await fetchNewEmails();
-    await logSyncRun('CRON', null, result);
-    if (!result.ok) return res.status(500).json(result);
-    res.json(result);
-  } catch (err) {
-    const payload = { ok: false, error: err?.message || 'sync_failed' };
-    await logSyncRun('CRON', null, payload);
-    res.status(500).json(payload);
-  }
+  const result = await runGmailSyncWithLock('CRON', null);
+  if (!result.ok) return res.status(500).json(result);
+  res.json(result);
 });
 
 app.post('/admin/jobs/gmail-sync', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await fetchNewEmails();
-    await logSyncRun('MANUAL', req.user.email, result);
-    if (!result.ok) return res.status(500).json(result);
-    res.json(result);
-  } catch (err) {
-    const payload = { ok: false, error: err?.message || 'sync_failed' };
-    await logSyncRun('MANUAL', req.user.email, payload);
-    res.status(500).json(payload);
-  }
+  const result = await runGmailSyncWithLock('MANUAL', req.user.email);
+  if (!result.ok) return res.status(500).json(result);
+  res.json(result);
 });
 
 app.get('/admin/jobs/gmail-sync/latest', requireAuth, requireAdmin, async (req, res) => {
