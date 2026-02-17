@@ -86,7 +86,12 @@
     <p class="text-muted text-center mb-4">Anslut ditt konto och välj de avdelningar du arbetar med.</p>
 
     <div class="mb-3">
-      <label class="small fw-bold field-label mb-1">Ditt namn</label>
+      <label class="small fw-bold field-label mb-1">E-post (Google-inloggning)</label>
+      <input type="text" id="userEmail" class="form-control" placeholder="Laddar..." readonly>
+    </div>
+
+    <div class="mb-3">
+      <label class="small fw-bold field-label mb-1">Visningsnamn</label>
       <input type="text" id="userName" class="form-control" placeholder="Förnamn Efternamn">
     </div>
 
@@ -138,6 +143,15 @@
       await api('/users/register', { method: 'POST', body: JSON.stringify({ name, group: selectedGroups }) });
       window.location.href = '/';
     }
+
+    async function init() {
+      const me = await api('/me');
+      if (!me) return;
+      document.getElementById('userEmail').value = me.email || '';
+      if (me.name) document.getElementById('userName').value = me.name;
+    }
+
+    init();
   </script>
 </body>
 </html>
