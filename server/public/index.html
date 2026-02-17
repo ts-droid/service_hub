@@ -128,7 +128,7 @@
 
           <div id="mHistory" class="history-container mb-3 shadow-sm"></div>
 
-          <label class="small fw-bold mb-1 text-primary">AI Svarsförslag (Gemini):</label>
+          <label class="small fw-bold mb-1 text-primary">AI Svarsförslag (OpenAI):</label>
           <div id="mAi" class="ai-box mb-3 small text-muted shadow-sm">AI tänker...</div>
 
           <textarea id="mReply" class="form-control shadow-sm mb-2" rows="5" placeholder="Skriv ditt svar... ID inkluderas automatiskt."></textarea>
@@ -189,7 +189,7 @@
       actions.push(`<a href="/auth/logout" class="btn btn-outline-light btn-sm fw-bold shadow-sm">Logga ut</a>`);
       document.getElementById('topActions').innerHTML = actions.join('');
       if (!geminiConfigured) {
-        document.getElementById('mAi').innerText = 'AI inte konfigurerad: sätt GEMINI_API_KEY i Railway Variables.';
+        document.getElementById('mAi').innerText = 'AI inte konfigurerad: sätt OPENAI_API_KEY i Railway Variables.';
       }
       loadFilters();
     };
@@ -258,7 +258,7 @@
       currentSenderEmail = sender;
       document.getElementById('mSubject').innerText = subject;
       document.getElementById('mHistory').innerHTML = '<div class="p-3 text-center text-muted">Laddar historik...</div>';
-      document.getElementById('mAi').innerText = "Gemini analyserar och tar fram ett svarsförslag...";
+      document.getElementById('mAi').innerText = "OpenAI analyserar och tar fram ett svarsförslag...";
       document.getElementById('mReply').value = "";
       tModal.show();
 
@@ -277,7 +277,7 @@
         const lastMsgText = res.messages[res.messages.length - 1].body;
         if (lastMsgText && lastMsgText !== "Ingen text tillgänglig.") {
           if (!geminiConfigured) {
-            document.getElementById('mAi').innerText = "AI inte konfigurerad: GEMINI_API_KEY saknas.";
+            document.getElementById('mAi').innerText = "AI inte konfigurerad: OPENAI_API_KEY saknas.";
           } else {
             const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
             if (ai && ai.text) {

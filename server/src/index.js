@@ -99,7 +99,7 @@ app.get('/me', requireAuth, async (req, res) => {
     gmailConnected,
     gmailReadEnabled: scope.includes(GMAIL_READ_SCOPE),
     gmailSendEnabled: scope.includes(GMAIL_SEND_SCOPE),
-    geminiConfigured: !!String(process.env.GEMINI_API_KEY || '').trim()
+    geminiConfigured: !!String(process.env.OPENAI_API_KEY || '').trim()
   });
 });
 

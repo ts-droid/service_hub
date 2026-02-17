@@ -8,22 +8,33 @@ async function getAiPrompt() {
 }
 
 async function getGeminiResponse(messageText) {
-  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  if (!apiKey) return { ok: false, error: 'API key missing' };
+  const apiKey = (process.env.OPENAI_API_KEY || '').trim();
+  if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY missing' };
 
   const systemPrompt = await getAiPrompt();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
+  const model = (process.env.OPENAI_MODEL || 'gpt-4.1-mini').trim();
+  const url = 'https://api.openai.com/v1/responses';
   const payload = {
-    contents: [{ parts: [{ text: `${systemPrompt}\n\nKUNDENS MEDDELANDE:\n${messageText}` }] }]
+    model,
+    input: [
+      { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
+      { role: 'user', content: [{ type: 'input_text', text: `KUNDENS MEDDELANDE:\n${messageText}` }] }
+    ]
   };
 
   try {
-    const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' } });
-    const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const response = await axios.post(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      }
+    });
+    const text = response.data?.output_text;
     if (!text) return { ok: false, error: 'Empty response' };
     return { ok: true, text };
   } catch (err) {
-    return { ok: false, error: 'Gemini error' };
+    const apiErr = err?.response?.data?.error?.message || err?.message || 'OpenAI error';
+    return { ok: false, error: apiErr };
   }
 }
 
