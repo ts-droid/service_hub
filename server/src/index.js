@@ -15,6 +15,14 @@ app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use(express.static('public'));
 
+async function logSyncRun(source, userEmail, payload) {
+  const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  await db.query(
+    'INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)',
+    [null, userEmail || null, 'GMAIL_SYNC', `[${source}] ${details}`]
+  );
+}
+
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.get('/', async (req, res) => {
@@ -342,21 +350,39 @@ app.put('/admin/users/:email', requireAuth, requireAdmin, async (req, res) => {
 app.post('/jobs/gmail-sync', requireJobToken, async (req, res) => {
   try {
     const result = await fetchNewEmails();
+    await logSyncRun('CRON', null, result);
     if (!result.ok) return res.status(500).json(result);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ ok: false, error: err?.message || 'sync_failed' });
+    const payload = { ok: false, error: err?.message || 'sync_failed' };
+    await logSyncRun('CRON', null, payload);
+    res.status(500).json(payload);
   }
 });
 
 app.post('/admin/jobs/gmail-sync', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await fetchNewEmails();
+    await logSyncRun('MANUAL', req.user.email, result);
     if (!result.ok) return res.status(500).json(result);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ ok: false, error: err?.message || 'sync_failed' });
+    const payload = { ok: false, error: err?.message || 'sync_failed' };
+    await logSyncRun('MANUAL', req.user.email, payload);
+    res.status(500).json(payload);
   }
+});
+
+app.get('/admin/jobs/gmail-sync/latest', requireAuth, requireAdmin, async (req, res) => {
+  const result = await db.query(
+    `SELECT timestamp, user_email, details
+     FROM logs
+     WHERE action = 'GMAIL_SYNC'
+     ORDER BY timestamp DESC
+     LIMIT 1`
+  );
+  if (!result.rows[0]) return res.json({ ok: true, latest: null });
+  res.json({ ok: true, latest: result.rows[0] });
 });
 
 async function ensureRuntimeSchema() {
