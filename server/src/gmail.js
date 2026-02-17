@@ -107,8 +107,16 @@ async function fetchNewEmails() {
     skippedNoGroup: 0,
     userListErrors: 0,
     threadFetchErrors: 0,
-    userListErrorDetails: []
+    userListErrorDetails: [],
+    samples: {
+      skippedExistingThread: [],
+      skippedInternalSender: [],
+      skippedBlacklistedSender: [],
+      skippedNoGroup: []
+    }
   };
+  const MAX_SAMPLE = 5;
+  const MAX_THREADS_PER_USER = 250;
 
   const startInfo = resolveStartTime();
   const afterDate = startInfo.used;
@@ -131,10 +139,21 @@ async function fetchNewEmails() {
     if (!oauth2Client) continue;
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-    let threads;
+    let threads = [];
     try {
-      const threadsRes = await gmail.users.threads.list({ userId: 'me', q: query, maxResults: 50 });
-      threads = threadsRes.data.threads || [];
+      let pageToken = undefined;
+      do {
+        const threadsRes = await gmail.users.threads.list({
+          userId: 'me',
+          q: query,
+          maxResults: 100,
+          pageToken
+        });
+        const pageThreads = threadsRes.data.threads || [];
+        threads.push(...pageThreads);
+        pageToken = threadsRes.data.nextPageToken;
+      } while (pageToken && threads.length < MAX_THREADS_PER_USER);
+      threads = threads.slice(0, MAX_THREADS_PER_USER);
       stats.threadsListed += threads.length;
     } catch (err) {
       stats.userListErrors += 1;
@@ -150,6 +169,9 @@ async function fetchNewEmails() {
     for (const t of threads) {
       if (existingSet.has(t.id)) {
         stats.skippedExistingThread += 1;
+        if (stats.samples.skippedExistingThread.length < MAX_SAMPLE) {
+          stats.samples.skippedExistingThread.push({ threadId: t.id });
+        }
         continue;
       }
 
@@ -179,10 +201,16 @@ async function fetchNewEmails() {
       }
       if (isInternal(from)) {
         stats.skippedInternalSender += 1;
+        if (stats.samples.skippedInternalSender.length < MAX_SAMPLE) {
+          stats.samples.skippedInternalSender.push({ threadId: t.id, from, subject });
+        }
         continue;
       }
       if (blacklist.has(sender.toLowerCase())) {
         stats.skippedBlacklistedSender += 1;
+        if (stats.samples.skippedBlacklistedSender.length < MAX_SAMPLE) {
+          stats.samples.skippedBlacklistedSender.push({ threadId: t.id, sender, subject });
+        }
         continue;
       }
 
@@ -190,6 +218,9 @@ async function fetchNewEmails() {
       const grp = await inferGroup(to, subject, body);
       if (!grp) {
         stats.skippedNoGroup += 1;
+        if (stats.samples.skippedNoGroup.length < MAX_SAMPLE) {
+          stats.samples.skippedNoGroup.push({ threadId: t.id, from, to, subject });
+        }
         continue;
       }
 
