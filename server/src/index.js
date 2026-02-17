@@ -98,7 +98,8 @@ app.get('/me', requireAuth, async (req, res) => {
     group: userRes.rows[0]?.group || '',
     gmailConnected,
     gmailReadEnabled: scope.includes(GMAIL_READ_SCOPE),
-    gmailSendEnabled: scope.includes(GMAIL_SEND_SCOPE)
+    gmailSendEnabled: scope.includes(GMAIL_SEND_SCOPE),
+    geminiConfigured: !!String(process.env.GEMINI_API_KEY || '').trim()
   });
 });
 
@@ -244,6 +245,45 @@ app.get('/tickets', requireAuth, async (req, res) => {
     Priority: t.priority,
     CreatedAt: t.created_at
   })));
+});
+
+app.get('/tickets/stats', requireAuth, async (req, res) => {
+  const { group } = req.query || {};
+  const email = req.user.email;
+
+  const users = await db.query('SELECT "group" FROM users WHERE email = $1', [email]);
+  const userGroups = (users.rows[0]?.group || '').split(',').map(s => s.trim()).filter(Boolean);
+
+  const where = [];
+  const params = [];
+
+  if (!group || group === 'Alla') {
+    if (userGroups.length) {
+      where.push(`"group" = ANY($${params.length + 1})`);
+      params.push(userGroups);
+    }
+  } else {
+    where.push(`"group" = $${params.length + 1}`);
+    params.push(group);
+  }
+
+  const rows = await db.query(
+    `SELECT
+      COUNT(*) FILTER (WHERE status = 'Nytt') AS nytt,
+      COUNT(*) FILTER (WHERE status = 'Väntar') AS vantar,
+      COUNT(*) FILTER (WHERE status = 'Löst') AS lost,
+      COUNT(*) FILTER (WHERE status = 'Pågår' AND owner_email = $${params.length + 1}) AS mina_pagaende
+     FROM tickets
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`,
+    [...params, email]
+  );
+
+  res.json({
+    Nytt: Number(rows.rows[0]?.nytt || 0),
+    'Mina Pågående': Number(rows.rows[0]?.mina_pagaende || 0),
+    Väntar: Number(rows.rows[0]?.vantar || 0),
+    Löst: Number(rows.rows[0]?.lost || 0)
+  });
 });
 
 app.get('/tickets/:id', requireAuth, async (req, res) => {

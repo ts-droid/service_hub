@@ -30,8 +30,41 @@
     }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-    .nav-tabs .nav-link { cursor: pointer; color: #495057; font-weight: 500; border: none; padding: 12px 20px; }
-    .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd !important; background: transparent; }
+    .main-tabs { padding: 10px; gap: 8px; }
+    .main-tabs .nav-item { flex: 1 1 0; }
+    .main-tabs .nav-link {
+      cursor: pointer;
+      color: #495057;
+      font-weight: 700;
+      border: 1px solid #dfe3ee;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .main-tabs .nav-link.active {
+      color: #0d6efd;
+      border-color: #0d6efd;
+      background: #edf4ff;
+      box-shadow: inset 0 0 0 1px rgba(13,110,253,0.1);
+    }
+    .tab-count {
+      min-width: 30px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-align: center;
+      background: #f1f3f5;
+      color: #495057;
+    }
+    .main-tabs .nav-link.active .tab-count {
+      background: #0d6efd;
+      color: #fff;
+    }
 
     .msg-bubble { margin-bottom: 15px; padding: 10px; border-radius: 8px; background: #f8f9fa; border: 1px solid #f1f1f1; }
     .msg-header { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px; color: #0d6efd; }
@@ -46,11 +79,11 @@
   </nav>
 
   <div class="container mt-4">
-    <ul class="nav nav-tabs mb-4 border-0 shadow-sm bg-white rounded px-2" id="mainTabs">
-      <li class="nav-item"><a class="nav-link active" onclick="setTab(this, 'Nytt')">Nytt</a></li>
-      <li class="nav-item"><a class="nav-link" onclick="setTab(this, 'Mina Pågående')">Mina Pågående</a></li>
-      <li class="nav-item"><a class="nav-link" onclick="setTab(this, 'Väntar')">Väntar</a></li>
-      <li class="nav-item"><a class="nav-link" onclick="setTab(this, 'Löst')">Löst</a></li>
+    <ul class="nav nav-tabs mb-4 border-0 shadow-sm bg-white rounded main-tabs" id="mainTabs">
+      <li class="nav-item"><a class="nav-link active" data-status="Nytt" onclick="setTab(this, 'Nytt')"><span>Nytt</span><span id="countNytt" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link" data-status="Mina Pågående" onclick="setTab(this, 'Mina Pågående')"><span>Mina Pågående</span><span id="countMinaPagaende" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link" data-status="Väntar" onclick="setTab(this, 'Väntar')"><span>Väntar</span><span id="countVantar" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link" data-status="Löst" onclick="setTab(this, 'Löst')"><span>Löst</span><span id="countLost" class="tab-count">0</span></a></li>
     </ul>
 
     <div class="row g-2 mb-3 align-items-center">
@@ -113,6 +146,7 @@
     let activeId = null;
     let currentSenderEmail = "";
     let currentStatusTab = "Nytt";
+    let geminiConfigured = false;
     const tModal = new bootstrap.Modal(document.getElementById('ticketModal'));
     const formatDateTime = (v) => {
       if (!v) return "";
@@ -147,12 +181,16 @@
     window.onload = async () => {
       const me = await api('/me');
       if (!me) return;
+      geminiConfigured = !!me.geminiConfigured;
       const actions = [];
       if (me.isAdmin) {
         actions.push(`<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">Admin</a>`);
       }
       actions.push(`<a href="/auth/logout" class="btn btn-outline-light btn-sm fw-bold shadow-sm">Logga ut</a>`);
       document.getElementById('topActions').innerHTML = actions.join('');
+      if (!geminiConfigured) {
+        document.getElementById('mAi').innerText = 'AI inte konfigurerad: sätt GEMINI_API_KEY i Railway Variables.';
+      }
       loadFilters();
     };
 
@@ -167,13 +205,27 @@
       const data = await api('/groups');
       if (!data) return;
       document.getElementById('filterGroup').innerHTML = data.groups.map(g => `<option value="${g}">${esc(g)}</option>`).join('');
-      setTimeout(refresh, 200);
+      await refresh();
+    }
+
+    async function refreshTabCounts() {
+      const group = document.getElementById('filterGroup').value;
+      const qs = new URLSearchParams({ group }).toString();
+      const stats = await api(`/tickets/stats?${qs}`);
+      if (!stats) return;
+      document.getElementById('countNytt').innerText = stats['Nytt'] || 0;
+      document.getElementById('countMinaPagaende').innerText = stats['Mina Pågående'] || 0;
+      document.getElementById('countVantar').innerText = stats['Väntar'] || 0;
+      document.getElementById('countLost').innerText = stats['Löst'] || 0;
     }
 
     async function refresh() {
       const filters = { group: document.getElementById('filterGroup').value, status: currentStatusTab };
       const qs = new URLSearchParams(filters).toString();
-      const tickets = await api(`/tickets?${qs}`);
+      const [tickets] = await Promise.all([
+        api(`/tickets?${qs}`),
+        refreshTabCounts()
+      ]);
       if (!tickets) return;
 
       const container = document.getElementById('ticketContainer');
@@ -224,10 +276,14 @@
       if (res.messages && res.messages.length > 0) {
         const lastMsgText = res.messages[res.messages.length - 1].body;
         if (lastMsgText && lastMsgText !== "Ingen text tillgänglig.") {
-          const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
-          if (ai && ai.text) {
-            document.getElementById('mAi').innerText = ai.text;
-            document.getElementById('mReply').value = ai.text;
+          if (!geminiConfigured) {
+            document.getElementById('mAi').innerText = "AI inte konfigurerad: GEMINI_API_KEY saknas.";
+          } else {
+            const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
+            if (ai && ai.text) {
+              document.getElementById('mAi').innerText = ai.text;
+              document.getElementById('mReply').value = ai.text;
+            }
           }
         } else {
           document.getElementById('mAi').innerText = "Kunde inte läsa innehållet för AI-förslag.";
