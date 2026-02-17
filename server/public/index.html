@@ -33,7 +33,7 @@
   <nav class="navbar navbar-dark bg-dark p-3 shadow-sm">
     <div class="container d-flex justify-content-between">
       <span class="navbar-brand fw-bold">Vendora Support Hub</span>
-      <div id="adminBtnContainer"></div>
+      <div id="topActions" class="d-flex gap-2"></div>
     </div>
   </nav>
 
@@ -129,10 +129,12 @@
     window.onload = async () => {
       const me = await api('/me');
       if (!me) return;
+      const actions = [];
       if (me.isAdmin) {
-        document.getElementById('adminBtnContainer').innerHTML =
-          `<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">Admin</a>`;
+        actions.push(`<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">Admin</a>`);
       }
+      actions.push(`<a href="/auth/logout" class="btn btn-outline-light btn-sm fw-bold shadow-sm">Logga ut</a>`);
+      document.getElementById('topActions').innerHTML = actions.join('');
       loadFilters();
     };
 
