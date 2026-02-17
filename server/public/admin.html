@@ -133,8 +133,13 @@
         return null;
       }
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Request failed');
+        const text = await res.text();
+        try {
+          const err = JSON.parse(text);
+          throw new Error(`${res.status}: ${err.error || err.reason || 'Request failed'}`);
+        } catch (e) {
+          throw new Error(`${res.status}: ${text || 'Request failed'}`);
+        }
       }
       return res.json();
     }

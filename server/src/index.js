@@ -340,15 +340,23 @@ app.put('/admin/users/:email', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.post('/jobs/gmail-sync', requireJobToken, async (req, res) => {
-  const result = await fetchNewEmails();
-  if (!result.ok) return res.status(500).json(result);
-  res.json(result);
+  try {
+    const result = await fetchNewEmails();
+    if (!result.ok) return res.status(500).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || 'sync_failed' });
+  }
 });
 
 app.post('/admin/jobs/gmail-sync', requireAuth, requireAdmin, async (req, res) => {
-  const result = await fetchNewEmails();
-  if (!result.ok) return res.status(500).json(result);
-  res.json(result);
+  try {
+    const result = await fetchNewEmails();
+    if (!result.ok) return res.status(500).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || 'sync_failed' });
+  }
 });
 
 async function ensureRuntimeSchema() {
