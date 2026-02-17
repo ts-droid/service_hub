@@ -251,12 +251,14 @@ async function fetchNewEmails() {
         const mBody = extractPlainBody(m.payload);
         const mDate = m.internalDate ? new Date(Number(m.internalDate)).toISOString() : now;
 
+        const messageId = m.id ? `MSG-${m.id}` : makeId('MSG');
         await db.query(
           `INSERT INTO messages
             (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
            VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [makeId('MSG'), ticketId, mDate, mFrom, mTo, mSubject, mBody, m.id, t.id]
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+           ON CONFLICT (message_id) DO NOTHING`,
+          [messageId, ticketId, mDate, mFrom, mTo, mSubject, mBody, m.id, t.id]
         );
       }
 
@@ -329,12 +331,14 @@ async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadI
     }
 
     const now = new Date().toISOString();
+    const messageId = sent?.data?.id ? `MSG-${sent.data.id}` : makeId('MSG');
     await db.query(
       `INSERT INTO messages
         (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [makeId('MSG'), ticketId, now, sentFrom, to, safeSubject, body, sent.data.id || null, threadId || null]
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (message_id) DO NOTHING`,
+      [messageId, ticketId, now, sentFrom, to, safeSubject, body, sent.data.id || null, threadId || null]
     );
 
     return { ok: true, messageId: sent.data.id || null, sentFrom };

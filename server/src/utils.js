@@ -1,9 +1,10 @@
+const crypto = require('crypto');
 const DEFAULT_ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || 'vendora.se';
 
 const GROUPS = ["SUPPORT", "RMA", "FINANCE", "LOGISTICS", "MARKETING", "SALES"]; 
 
 function makeId(prefix) {
-  return `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+  return `${prefix}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 function normalizeEmails(raw) {
