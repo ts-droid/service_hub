@@ -213,9 +213,12 @@
       try {
         const res = await api('/admin/jobs/gmail-sync', { method: 'POST' });
         const details = res.stats
-          ? ` | listade: ${res.stats.threadsListed}, hämtade: ${res.stats.threadsFetched}, skip-internal: ${res.stats.skippedInternalSender}, skip-no-group: ${res.stats.skippedNoGroup}, skip-existing: ${res.stats.skippedExistingThread}`
+          ? ` | users: ${res.stats.usersScanned}, listade: ${res.stats.threadsListed}, hämtade: ${res.stats.threadsFetched}, skip-internal: ${res.stats.skippedInternalSender}, skip-no-group: ${res.stats.skippedNoGroup}, skip-existing: ${res.stats.skippedExistingThread}, list-errors: ${res.stats.userListErrors}, thread-errors: ${res.stats.threadFetchErrors}`
           : '';
-        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.${details}`;
+        const startInfo = res.startTimeUsed
+          ? ` Start: ${res.startTimeUsed} (${res.startTimeReason || 'unknown'}).`
+          : '';
+        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.${details}${startInfo}`;
       } catch (err) {
         resultBox.textContent = `Fel: ${err.message}`;
       } finally {

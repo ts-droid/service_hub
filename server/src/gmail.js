@@ -17,6 +17,21 @@ function hasScope(scopeString, requiredScope) {
   return String(scopeString || '').split(/\s+/).includes(requiredScope);
 }
 
+function resolveStartTime() {
+  const configured = process.env.START_TIME_ISO || '2026-02-11T20:00:00';
+  const parsed = new Date(configured);
+  const now = new Date();
+  if (Number.isNaN(parsed.getTime())) {
+    const fallback = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return { configured, used: fallback, reason: 'invalid_config_fallback_30d' };
+  }
+  if (parsed.getTime() > now.getTime()) {
+    const fallback = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return { configured, used: fallback, reason: 'future_config_fallback_30d' };
+  }
+  return { configured, used: parsed, reason: 'configured' };
+}
+
 function getOauthClient(refreshToken) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -94,8 +109,8 @@ async function fetchNewEmails() {
     threadFetchErrors: 0
   };
 
-  const startTime = process.env.START_TIME_ISO || '2026-02-11T20:00:00';
-  const afterDate = new Date(startTime);
+  const startInfo = resolveStartTime();
+  const afterDate = startInfo.used;
   const yyyy = afterDate.getUTCFullYear();
   const mm = String(afterDate.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(afterDate.getUTCDate()).padStart(2, '0');
@@ -213,7 +228,15 @@ async function fetchNewEmails() {
     }
   }
 
-  return { ok: true, created, query, startTime, stats };
+  return {
+    ok: true,
+    created,
+    query,
+    startTimeConfigured: startInfo.configured,
+    startTimeUsed: startInfo.used.toISOString(),
+    startTimeReason: startInfo.reason,
+    stats
+  };
 }
 
 function getGroupReplyAddress(groupName) {
