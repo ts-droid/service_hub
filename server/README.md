@@ -78,7 +78,7 @@ Google OAuth login with cookie session:
 - Group-from addresses require Gmail Send-As/delegation on the user's account; otherwise system falls back to the user's own email.
 - Optional env overrides:
   - `GROUP_MAIL_SUPPORT`, `GROUP_MAIL_RMA`, `GROUP_MAIL_FINANCE`, `GROUP_MAIL_LOGISTICS`, `GROUP_MAIL_MARKETING`, `GROUP_MAIL_SALES`
-- `config` keys used: `AI_PROMPT`, `KEYWORDS_RMA`, `KEYWORDS_FINANCE`, `KEYWORDS_LOGISTICS`, `KEYWORDS_SUPPORT`.
+- `config` keys used: `AI_PROMPT`, `KEYWORDS_RMA`, `KEYWORDS_FINANCE`, `KEYWORDS_LOGISTICS`, `KEYWORDS_MARKETING`, `KEYWORDS_SALES`, `KEYWORDS_SUPPORT`.
 
 ## Import data from CSV
 1. Export each sheet to CSV and place files in a folder (default: `server/csv`).

@@ -44,6 +44,8 @@ async function getConfigKeywords() {
     keywordsRma: parse('KEYWORDS_RMA'),
     keywordsFinance: parse('KEYWORDS_FINANCE'),
     keywordsLogistics: parse('KEYWORDS_LOGISTICS'),
+    keywordsMarketing: parse('KEYWORDS_MARKETING'),
+    keywordsSales: parse('KEYWORDS_SALES'),
     keywordsSupport: parse('KEYWORDS_SUPPORT')
   };
 }
@@ -51,18 +53,23 @@ async function getConfigKeywords() {
 async function inferGroup(recipient, subject, body) {
   const r = (recipient || '').toLowerCase();
   const content = `${subject || ''} ${body || ''}`.toLowerCase();
+
+  const keys = await getConfigKeywords();
+  // Primary classifier: keywords in subject/body.
+  if (keys.keywordsRma.some(k => content.includes(k))) return 'RMA';
+  if (keys.keywordsFinance.some(k => content.includes(k))) return 'FINANCE';
+  if (keys.keywordsLogistics.some(k => content.includes(k))) return 'LOGISTICS';
+  if (keys.keywordsSales.some(k => content.includes(k))) return 'SALES';
+  if (keys.keywordsMarketing.some(k => content.includes(k))) return 'MARKETING';
+  if (keys.keywordsSupport.some(k => content.includes(k))) return 'SUPPORT';
+
+  // Fallback: infer from addressed mailbox alias.
   if (r.includes('rma@vendora.se')) return 'RMA';
   if (r.includes('invoice@vendora.se')) return 'FINANCE';
   if (r.includes('logistics@vendora.se')) return 'LOGISTICS';
   if (r.includes('sales@vendora.se')) return 'SALES';
   if (r.includes('marketing@vendora.se')) return 'MARKETING';
   if (r.includes('support@vendora.se')) return 'SUPPORT';
-
-  const keys = await getConfigKeywords();
-  if (keys.keywordsRma.some(k => content.includes(k))) return 'RMA';
-  if (keys.keywordsFinance.some(k => content.includes(k))) return 'FINANCE';
-  if (keys.keywordsLogistics.some(k => content.includes(k))) return 'LOGISTICS';
-  if (keys.keywordsSupport.some(k => content.includes(k))) return 'SUPPORT';
   return null;
 }
 
