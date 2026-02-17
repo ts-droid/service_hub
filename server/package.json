@@ -6,7 +6,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "import:csv": "node scripts/import_csv.js"
   },
   "dependencies": {
     "axios": "^1.6.8",

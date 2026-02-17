@@ -67,3 +67,22 @@ Google OAuth login with cookie session:
 ## Notes
 - Gmail sync requires Google OAuth client + refresh token.
 - `config` keys used: `AI_PROMPT`, `KEYWORDS_RMA`, `KEYWORDS_FINANCE`, `KEYWORDS_LOGISTICS`, `KEYWORDS_SUPPORT`.
+
+## Import data from CSV
+1. Export each sheet to CSV and place files in a folder (default: `server/csv`).
+2. Filenames must match:
+   - `Users.csv`
+   - `Tickets.csv`
+   - `Messages.csv`
+   - `Config.csv`
+   - `Logs.csv`
+   - `Blacklist.csv`
+3. Run:
+
+```bash
+export DATABASE_URL="postgresql://..."
+export CSV_DIR="/path/to/csv"
+node scripts/import_csv.js
+```
+
+The importer truncates existing tables before inserting fresh data.
