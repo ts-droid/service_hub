@@ -7,6 +7,15 @@
   <style>
     body { background: #f6f7fb; font-family: 'Segoe UI', sans-serif; }
     .card { border: none; border-radius: 12px; }
+    .section-title { font-weight: 700; margin-bottom: 10px; }
+    .muted { color: #6c757d; font-size: 0.85rem; }
+    .user-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+    .user-meta { font-size: 0.85rem; color: #6c757d; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 0.75rem; font-weight: 600; }
+    .config-row { display: grid; grid-template-columns: 220px 1fr 120px; gap: 10px; align-items: center; }
+    @media (max-width: 992px) {
+      .config-row { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -19,33 +28,89 @@
 
   <div class="container mt-4">
     <div class="row g-4">
-      <div class="col-lg-6">
+      <div class="col-12">
         <div class="card p-4 shadow-sm">
-          <h5 class="fw-bold mb-3">Användare</h5>
+          <div class="section-title">Användare</div>
           <div id="usersList" class="small text-muted">Laddar...</div>
         </div>
       </div>
-      <div class="col-lg-6">
+
+      <div class="col-lg-8">
         <div class="card p-4 shadow-sm">
-          <h5 class="fw-bold mb-3">Blacklist</h5>
-          <div id="blacklist" class="small text-muted">Laddar...</div>
+          <div class="section-title">Inställningar</div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">AI Prompt</label>
+            <textarea id="aiPrompt" class="form-control" rows="4" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
+            <div class="d-flex justify-content-end mt-2">
+              <button class="btn btn-primary" onclick="saveAiPrompt()">Spara AI Prompt</button>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label fw-bold">Keywords (alla rader)</label>
+            <div id="keywordsList" class="d-grid gap-2"></div>
+          </div>
         </div>
       </div>
-      <div class="col-12">
+
+      <div class="col-lg-4">
         <div class="card p-4 shadow-sm">
-          <h5 class="fw-bold mb-3">Config</h5>
-          <div class="row g-2">
-            <div class="col-md-4"><input id="cfgKey" class="form-control" placeholder="KEYWORDS_SUPPORT" /></div>
-            <div class="col-md-6"><input id="cfgValue" class="form-control" placeholder="komma,separerade,ord" /></div>
-            <div class="col-md-2"><button class="btn btn-primary w-100" onclick="saveConfig()">Spara</button></div>
-          </div>
-          <small class="text-muted">Ex: AI_PROMPT eller KEYWORDS_RMA/FINANCE/LOGISTICS/SUPPORT</small>
+          <div class="section-title">Blacklist</div>
+          <div class="muted mb-2">Välj email för att avblockera</div>
+          <select id="blacklistSelect" class="form-select mb-2"></select>
+          <button class="btn btn-outline-success w-100" onclick="unblockSelected()">Avblockera vald</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Edit User Modal -->
+  <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Redigera användare</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input id="editEmail" class="form-control" disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Namn</label>
+            <input id="editName" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Grupper (kommaseparerat)</label>
+            <input id="editGroup" class="form-control" placeholder="SUPPORT,RMA">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Roll</label>
+            <select id="editRole" class="form-select">
+              <option value="User">User</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div class="form-check">
+            <input id="editActive" class="form-check-input" type="checkbox" checked>
+            <label class="form-check-label">Aktiv</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
+          <button class="btn btn-primary" onclick="saveUserEdit()">Spara</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+    let editUserEmail = null;
+    let blacklistIndex = new Map();
+
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
       if (res.status === 401) {
@@ -67,23 +132,45 @@
     async function loadUsers() {
       const users = await api('/admin/users');
       if (!users) return;
-      document.getElementById('usersList').innerHTML = users.map(u =>
-        `<div class="d-flex justify-content-between border-bottom py-2">
-          <div>${u.name} <span class="text-muted">(${u.email})</span><br><small>${u.group} • ${u.role}</small></div>
-          <button class="btn btn-sm btn-outline-danger" onclick="delUser('${u.email}')">Ta bort</button>
-        </div>`
-      ).join('');
+      document.getElementById('usersList').innerHTML = users.map(u => {
+        const groups = (u.group || '').split(',').filter(Boolean).map(g => `<span class="pill me-1">${g.trim()}</span>`).join('');
+        return `
+          <div class="user-row">
+            <div>
+              <div class="fw-bold">${u.name} <span class="text-muted">(${u.email})</span></div>
+              <div class="user-meta">${groups || '<span class="muted">Inga grupper</span>'} • ${u.role}</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-primary" onclick="openEdit('${u.email}', '${u.name}', '${u.group}', '${u.role}', ${u.active})">Editera</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="delUser('${u.email}')">Ta bort</button>
+            </div>
+          </div>`;
+      }).join('');
     }
 
-    async function loadBlacklist() {
-      const list = await api('/admin/blacklist');
-      if (!list) return;
-      document.getElementById('blacklist').innerHTML = list.map(b =>
-        `<div class="d-flex justify-content-between border-bottom py-2">
-          <div>${b.email}<br><small class="text-muted">${new Date(b.blocked_at).toLocaleString()}</small></div>
-          <button class="btn btn-sm btn-outline-success" onclick="unblock('${b.email}')">Avblockera</button>
-        </div>`
-      ).join('');
+    function openEdit(email, name, group, role, active) {
+      editUserEmail = email;
+      document.getElementById('editEmail').value = email;
+      document.getElementById('editName').value = name || '';
+      document.getElementById('editGroup').value = group || '';
+      document.getElementById('editRole').value = role || 'User';
+      document.getElementById('editActive').checked = !!active;
+      editModal.show();
+    }
+
+    async function saveUserEdit() {
+      const name = document.getElementById('editName').value.trim();
+      const group = document.getElementById('editGroup').value.trim();
+      const role = document.getElementById('editRole').value;
+      const active = document.getElementById('editActive').checked;
+      if (!name || !group || !role) return alert('Fyll i namn, grupp och roll');
+
+      await api(`/admin/users/${encodeURIComponent(editUserEmail)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, group, role, active })
+      });
+      editModal.hide();
+      loadUsers();
     }
 
     async function delUser(email) {
@@ -92,20 +179,50 @@
       loadUsers();
     }
 
-    async function unblock(email) {
+    async function loadBlacklist() {
+      const list = await api('/admin/blacklist');
+      if (!list) return;
+      blacklistIndex = new Map(list.map(b => [b.email, b.blocked_at]));
+      const select = document.getElementById('blacklistSelect');
+      select.innerHTML = list.map(b => `<option value="${b.email}">${b.email} • ${new Date(b.blocked_at).toLocaleString()}</option>`).join('');
+    }
+
+    async function unblockSelected() {
+      const email = document.getElementById('blacklistSelect').value;
+      if (!email) return;
       await api(`/admin/blacklist/${encodeURIComponent(email)}`, { method: 'DELETE' });
       loadBlacklist();
     }
 
-    async function saveConfig() {
-      const key = document.getElementById('cfgKey').value.trim();
-      const value = document.getElementById('cfgValue').value.trim();
-      if (!key) return alert('Ange key');
+    async function loadConfig() {
+      const rows = await api('/admin/config');
+      if (!rows) return;
+      const map = new Map(rows.map(r => [r.key, r.value]));
+      document.getElementById('aiPrompt').value = map.get('AI_PROMPT') || '';
+
+      const keywords = rows.filter(r => r.key.startsWith('KEYWORDS_'));
+      document.getElementById('keywordsList').innerHTML = keywords.map(r => `
+        <div class="config-row">
+          <div class="fw-bold">${r.key}</div>
+          <input class="form-control" id="cfg_${r.key}" value="${(r.value || '').replace(/"/g, '&quot;')}">
+          <button class="btn btn-outline-primary" onclick="saveConfigKey('${r.key}')">Spara</button>
+        </div>`).join('');
+    }
+
+    async function saveAiPrompt() {
+      const value = document.getElementById('aiPrompt').value.trim();
+      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key: 'AI_PROMPT', value }) });
+      alert('AI Prompt sparad');
+    }
+
+    async function saveConfigKey(key) {
+      const value = document.getElementById(`cfg_${key}`).value.trim();
       await api('/admin/config', { method: 'POST', body: JSON.stringify({ key, value }) });
       alert('Sparat');
     }
 
     loadUsers();
+    loadConfig();
     loadBlacklist();
   </script>
 </body>

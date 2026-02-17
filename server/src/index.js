@@ -255,6 +255,11 @@ app.delete('/admin/blacklist/:email', requireAuth, requireAdmin, async (req, res
   res.json({ ok: true });
 });
 
+app.get('/admin/config', requireAuth, requireAdmin, async (req, res) => {
+  const result = await db.query('SELECT key, value FROM config ORDER BY key ASC');
+  res.json(result.rows);
+});
+
 app.post('/admin/config', requireAuth, requireAdmin, async (req, res) => {
   const key = (req.body?.key || '').trim();
   const value = (req.body?.value || '').trim();
@@ -263,6 +268,22 @@ app.post('/admin/config', requireAuth, requireAdmin, async (req, res) => {
   await db.query(
     'INSERT INTO config (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
     [key, value]
+  );
+  res.json({ ok: true });
+});
+
+app.put('/admin/users/:email', requireAuth, requireAdmin, async (req, res) => {
+  const email = req.params.email.toLowerCase();
+  const name = (req.body?.name || '').trim();
+  const group = (req.body?.group || '').trim();
+  const role = (req.body?.role || '').trim();
+  const active = req.body?.active;
+
+  if (!name || !group || !role) return res.status(400).json({ error: 'name, group, role required' });
+
+  await db.query(
+    'UPDATE users SET name = $1, "group" = $2, role = $3, active = $4 WHERE email = $5',
+    [name, group, role, active !== undefined ? !!active : true, email]
   );
   res.json({ ok: true });
 });
