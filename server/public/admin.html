@@ -212,7 +212,10 @@
       resultBox.textContent = '';
       try {
         const res = await api('/admin/jobs/gmail-sync', { method: 'POST' });
-        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.`;
+        const details = res.stats
+          ? ` | listade: ${res.stats.threadsListed}, hämtade: ${res.stats.threadsFetched}, skip-internal: ${res.stats.skippedInternalSender}, skip-no-group: ${res.stats.skippedNoGroup}, skip-existing: ${res.stats.skippedExistingThread}`
+          : '';
+        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.${details}`;
       } catch (err) {
         resultBox.textContent = `Fel: ${err.message}`;
       } finally {

@@ -80,6 +80,20 @@ async function fetchNewEmails() {
   const users = usersRes.rows.filter(u => hasScope(u.scope, GMAIL_READ_SCOPE));
   if (!users.length) return { ok: false, reason: 'no users with gmail.readonly consent' };
 
+  const stats = {
+    usersScanned: users.length,
+    threadsListed: 0,
+    threadsFetched: 0,
+    inserted: 0,
+    skippedExistingThread: 0,
+    skippedInternalSender: 0,
+    skippedBlacklistedSender: 0,
+    skippedMissingSender: 0,
+    skippedNoGroup: 0,
+    userListErrors: 0,
+    threadFetchErrors: 0
+  };
+
   const startTime = process.env.START_TIME_ISO || '2026-02-11T20:00:00';
   const afterDate = new Date(startTime);
   const yyyy = afterDate.getUTCFullYear();
@@ -105,17 +119,24 @@ async function fetchNewEmails() {
     try {
       const threadsRes = await gmail.users.threads.list({ userId: 'me', q: query, maxResults: 50 });
       threads = threadsRes.data.threads || [];
+      stats.threadsListed += threads.length;
     } catch (err) {
+      stats.userListErrors += 1;
       continue;
     }
 
     for (const t of threads) {
-      if (existingSet.has(t.id)) continue;
+      if (existingSet.has(t.id)) {
+        stats.skippedExistingThread += 1;
+        continue;
+      }
 
       let thread;
       try {
         thread = await gmail.users.threads.get({ userId: 'me', id: t.id, format: 'full' });
+        stats.threadsFetched += 1;
       } catch (err) {
+        stats.threadFetchErrors += 1;
         continue;
       }
 
@@ -130,11 +151,25 @@ async function fetchNewEmails() {
       const to = getHeader('To');
       const subject = getHeader('Subject');
       const sender = normalizeEmails(from)[0];
-      if (!sender || isInternal(from) || blacklist.has(sender.toLowerCase())) continue;
+      if (!sender) {
+        stats.skippedMissingSender += 1;
+        continue;
+      }
+      if (isInternal(from)) {
+        stats.skippedInternalSender += 1;
+        continue;
+      }
+      if (blacklist.has(sender.toLowerCase())) {
+        stats.skippedBlacklistedSender += 1;
+        continue;
+      }
 
       const body = extractPlainBody(last.payload);
       const grp = await inferGroup(to, subject, body);
-      if (!grp) continue;
+      if (!grp) {
+        stats.skippedNoGroup += 1;
+        continue;
+      }
 
       const ticketId = makeId('VEN');
       const now = new Date().toISOString();
@@ -150,6 +185,7 @@ async function fetchNewEmails() {
       );
       if (!insertTicket.rowCount) {
         existingSet.add(t.id);
+        stats.skippedExistingThread += 1;
         continue;
       }
 
@@ -173,10 +209,11 @@ async function fetchNewEmails() {
 
       existingSet.add(t.id);
       created += 1;
+      stats.inserted += 1;
     }
   }
 
-  return { ok: true, created };
+  return { ok: true, created, query, startTime, stats };
 }
 
 function getGroupReplyAddress(groupName) {
