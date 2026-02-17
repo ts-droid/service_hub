@@ -38,15 +38,7 @@
       <div class="col-lg-8">
         <div class="card p-4 shadow-sm">
           <div class="section-title">Inställningar</div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">AI Prompt</label>
-            <textarea id="aiPrompt" class="form-control" rows="4" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
-            <div class="d-flex justify-content-end mt-2">
-              <button class="btn btn-primary" onclick="saveAiPrompt()">Spara AI Prompt</button>
-            </div>
-          </div>
-
-          <div class="mt-3">
+          <div class="mt-2">
             <label class="form-label fw-bold">Keywords (alla rader)</label>
             <div id="keywordsList" class="d-grid gap-2"></div>
           </div>
@@ -54,11 +46,19 @@
       </div>
 
       <div class="col-lg-4">
-        <div class="card p-4 shadow-sm">
+        <div class="card p-4 shadow-sm mb-4">
           <div class="section-title">Blacklist</div>
           <div class="muted mb-2">Välj email för att avblockera</div>
           <select id="blacklistSelect" class="form-select mb-2"></select>
           <button class="btn btn-outline-success w-100" onclick="unblockSelected()">Avblockera vald</button>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+          <div class="section-title">AI Prompt</div>
+          <textarea id="aiPrompt" class="form-control" rows="5" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
+          <div class="d-flex justify-content-end mt-2">
+            <button class="btn btn-primary" onclick="saveAiPrompt()">Spara AI Prompt</button>
+          </div>
         </div>
       </div>
     </div>
