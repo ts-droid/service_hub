@@ -88,6 +88,11 @@ app.post('/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/auth/logout', (req, res) => {
+  clearSessionCookie(res);
+  res.redirect('/');
+});
+
 app.get('/groups', requireAuth, (req, res) => {
   res.json({ groups: ['Alla', ...GROUPS] });
 });
