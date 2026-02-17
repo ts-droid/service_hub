@@ -279,10 +279,16 @@
           if (!geminiConfigured) {
             document.getElementById('mAi').innerText = "AI inte konfigurerad: OPENAI_API_KEY saknas.";
           } else {
-            const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
-            if (ai && ai.text) {
-              document.getElementById('mAi').innerText = ai.text;
-              document.getElementById('mReply').value = ai.text;
+            try {
+              const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
+              if (ai && ai.text) {
+                document.getElementById('mAi').innerText = ai.text;
+                document.getElementById('mReply').value = ai.text;
+              } else {
+                document.getElementById('mAi').innerText = "AI svarade tomt. Kontrollera model/API-inställning.";
+              }
+            } catch (err) {
+              document.getElementById('mAi').innerText = `AI-fel: ${err.message}`;
             }
           }
         } else {

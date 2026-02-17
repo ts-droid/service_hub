@@ -29,7 +29,11 @@ async function getGeminiResponse(messageText) {
         Authorization: `Bearer ${apiKey}`
       }
     });
-    const text = response.data?.output_text;
+    const text =
+      response.data?.output_text ||
+      response.data?.output?.flatMap((item) => item?.content || [])
+        ?.find((c) => c?.type === 'output_text')?.text ||
+      '';
     if (!text) return { ok: false, error: 'Empty response' };
     return { ok: true, text };
   } catch (err) {
