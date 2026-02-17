@@ -345,6 +345,12 @@ app.post('/jobs/gmail-sync', requireJobToken, async (req, res) => {
   res.json(result);
 });
 
+app.post('/admin/jobs/gmail-sync', requireAuth, requireAdmin, async (req, res) => {
+  const result = await fetchNewEmails();
+  if (!result.ok) return res.status(500).json(result);
+  res.json(result);
+});
+
 async function ensureRuntimeSchema() {
   await db.query(`CREATE TABLE IF NOT EXISTS user_oauth_tokens (
     email TEXT PRIMARY KEY,

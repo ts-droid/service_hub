@@ -50,6 +50,13 @@
 
       <div class="col-lg-4">
         <div class="card p-4 shadow-sm mb-4">
+          <div class="section-title">Synk</div>
+          <div class="muted mb-2">Hämtar nya Gmail-ärenden till databasen</div>
+          <button id="syncBtn" class="btn btn-primary w-100" onclick="runSync()">Synka nu</button>
+          <div id="syncResult" class="muted mt-2"></div>
+        </div>
+
+        <div class="card p-4 shadow-sm mb-4">
           <div class="section-title">Blacklist</div>
           <div class="muted mb-2">Välj email för att avblockera</div>
           <select id="blacklistSelect" class="form-select mb-2"></select>
@@ -195,6 +202,23 @@
       if (!email) return;
       await api(`/admin/blacklist/${encodeURIComponent(email)}`, { method: 'DELETE' });
       loadBlacklist();
+    }
+
+    async function runSync() {
+      const btn = document.getElementById('syncBtn');
+      const resultBox = document.getElementById('syncResult');
+      btn.disabled = true;
+      btn.textContent = 'Synkar...';
+      resultBox.textContent = '';
+      try {
+        const res = await api('/admin/jobs/gmail-sync', { method: 'POST' });
+        resultBox.textContent = `Klar. Skapade ${res.created || 0} nya ärenden.`;
+      } catch (err) {
+        resultBox.textContent = `Fel: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Synka nu';
+      }
     }
 
     async function loadConfig() {
