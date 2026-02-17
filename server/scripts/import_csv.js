@@ -124,13 +124,20 @@ async function truncateAll(client) {
   await client.query('TRUNCATE TABLE messages, tickets, users, config, logs, blacklist RESTART IDENTITY');
 }
 
+function conflictClauseFor(table) {
+  if (table === 'config') return 'ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value';
+  if (['messages', 'tickets', 'users', 'blacklist'].includes(table)) return 'ON CONFLICT DO NOTHING';
+  return '';
+}
+
 async function insertRows(client, table, headers, rows) {
   if (!rows.length) return;
   const cols = headers.map(h => `"${h}"`).join(',');
+  const conflict = conflictClauseFor(table);
   for (const r of rows) {
     const values = headers.map(h => (r[h] === '' ? null : r[h]));
     const params = values.map((_, i) => `$${i + 1}`).join(',');
-    const sql = `INSERT INTO ${table} (${cols}) VALUES (${params})`;
+    const sql = `INSERT INTO ${table} (${cols}) VALUES (${params}) ${conflict}`;
     await client.query(sql, values);
   }
 }
