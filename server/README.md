@@ -67,6 +67,17 @@ Google OAuth login with cookie session:
 ## Notes
 - Gmail sync and sending replies use per-user OAuth tokens captured at Google login (`gmail.readonly` + `gmail.send`).
 - Existing users should log out and sign in again once to grant the Gmail scopes.
+- Sync reads incoming mail across connected mailbox folders (not only shared group aliases).
+- Replies try to send from group mailbox by ticket group:
+  - `SUPPORT -> support@vendora.se`
+  - `RMA -> rma@vendora.se`
+  - `FINANCE -> invoice@vendora.se`
+  - `LOGISTICS -> logistics@vendora.se`
+  - `MARKETING -> marketing@vendora.se`
+  - `SALES -> sales@vendora.se`
+- Group-from addresses require Gmail Send-As/delegation on the user's account; otherwise system falls back to the user's own email.
+- Optional env overrides:
+  - `GROUP_MAIL_SUPPORT`, `GROUP_MAIL_RMA`, `GROUP_MAIL_FINANCE`, `GROUP_MAIL_LOGISTICS`, `GROUP_MAIL_MARKETING`, `GROUP_MAIL_SALES`
 - `config` keys used: `AI_PROMPT`, `KEYWORDS_RMA`, `KEYWORDS_FINANCE`, `KEYWORDS_LOGISTICS`, `KEYWORDS_SUPPORT`.
 
 ## Import data from CSV

@@ -221,7 +221,7 @@ app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
   const text = (req.body?.text || '').trim();
   if (!text) return res.status(400).json({ error: 'text required' });
 
-  const ticketRes = await db.query('SELECT subject, sender_email, thread_id FROM tickets WHERE ticket_id = $1', [ticketId]);
+  const ticketRes = await db.query('SELECT subject, sender_email, thread_id, "group" FROM tickets WHERE ticket_id = $1', [ticketId]);
   if (!ticketRes.rows[0]) return res.status(404).json({ error: 'ticket not found' });
   const ticket = ticketRes.rows[0];
 
@@ -231,12 +231,16 @@ app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
     ticket.sender_email,
     ticket.subject,
     text,
-    ticket.thread_id
+    ticket.thread_id,
+    ticket.group
   );
   if (!sendResult.ok) return res.status(400).json({ error: sendResult.error });
 
   await db.query('UPDATE tickets SET status = $1, updated_at = $2, last_message_at = $3 WHERE ticket_id = $4', ['Väntar', nowIso(), nowIso(), ticketId]);
-  await db.query('INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)', [ticketId, req.user.email, 'REPLY', 'Reply stored']);
+  await db.query(
+    'INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)',
+    [ticketId, req.user.email, 'REPLY', `Reply sent from ${sendResult.sentFrom || req.user.email}`]
+  );
   res.json({ ok: true });
 });
 

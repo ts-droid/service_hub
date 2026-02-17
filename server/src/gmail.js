@@ -4,6 +4,14 @@ const { makeId, normalizeEmails, isInternal } = require('./utils');
 
 const GMAIL_READ_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+const GROUP_REPLY_FROM = {
+  SUPPORT: process.env.GROUP_MAIL_SUPPORT || 'support@vendora.se',
+  RMA: process.env.GROUP_MAIL_RMA || 'rma@vendora.se',
+  FINANCE: process.env.GROUP_MAIL_FINANCE || 'invoice@vendora.se',
+  LOGISTICS: process.env.GROUP_MAIL_LOGISTICS || 'logistics@vendora.se',
+  MARKETING: process.env.GROUP_MAIL_MARKETING || 'marketing@vendora.se',
+  SALES: process.env.GROUP_MAIL_SALES || 'sales@vendora.se'
+};
 
 function hasScope(scopeString, requiredScope) {
   return String(scopeString || '').split(/\s+/).includes(requiredScope);
@@ -70,7 +78,8 @@ async function fetchNewEmails() {
   const yyyy = afterDate.getUTCFullYear();
   const mm = String(afterDate.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(afterDate.getUTCDate()).padStart(2, '0');
-  const query = `after:${yyyy}/${mm}/${dd} (to:support@vendora.se OR to:rma@vendora.se OR to:logistics@vendora.se OR to:invoice@vendora.se OR to:sales@vendora.se OR to:marketing@vendora.se)`;
+  // Read all incoming messages in connected mailboxes, not only shared-group aliases.
+  const query = `after:${yyyy}/${mm}/${dd} -in:chats -in:drafts -in:trash`;
 
   const existingThreads = await db.query('SELECT thread_id FROM tickets');
   const existingSet = new Set(existingThreads.rows.map(r => r.thread_id));
@@ -163,7 +172,31 @@ async function fetchNewEmails() {
   return { ok: true, created };
 }
 
-async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadId) {
+function getGroupReplyAddress(groupName) {
+  return GROUP_REPLY_FROM[String(groupName || '').toUpperCase()] || null;
+}
+
+async function sendMessage(gmail, fromAddress, to, subject, body, threadId) {
+  const message = [
+    `From: ${fromAddress}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    '',
+    body
+  ].join('\r\n');
+
+  const raw = Buffer.from(message).toString('base64url');
+  return gmail.users.messages.send({
+    userId: 'me',
+    requestBody: {
+      raw,
+      threadId: threadId || undefined
+    }
+  });
+}
+
+async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadId, ticketGroup) {
   const token = await getUserToken(userEmail);
   if (!token || !token.refresh_token) return { ok: false, error: 'gmail not connected for user' };
   if (!hasScope(token.scope, GMAIL_SEND_SCOPE)) return { ok: false, error: 'gmail.send scope missing' };
@@ -173,25 +206,22 @@ async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadI
   const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
   const safeSubject = subject && subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject || ''}`;
-  const message = [
-    `From: ${userEmail}`,
-    `To: ${to}`,
-    `Subject: ${safeSubject}`,
-    'Content-Type: text/plain; charset="UTF-8"',
-    '',
-    body
-  ].join('\r\n');
-
-  const raw = Buffer.from(message).toString('base64url');
+  const preferredFrom = getGroupReplyAddress(ticketGroup);
+  const fallbackFrom = userEmail;
+  let sent;
+  let sentFrom = fallbackFrom;
 
   try {
-    const sent = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw,
-        threadId: threadId || undefined
+    if (preferredFrom && preferredFrom.toLowerCase() !== fallbackFrom.toLowerCase()) {
+      try {
+        sent = await sendMessage(gmail, preferredFrom, to, safeSubject, body, threadId);
+        sentFrom = preferredFrom;
+      } catch (err) {
+        sent = await sendMessage(gmail, fallbackFrom, to, safeSubject, body, threadId);
       }
-    });
+    } else {
+      sent = await sendMessage(gmail, fallbackFrom, to, safeSubject, body, threadId);
+    }
 
     const now = new Date().toISOString();
     await db.query(
@@ -199,10 +229,10 @@ async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadI
         (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
        VALUES
         ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [makeId('MSG'), ticketId, now, userEmail, to, safeSubject, body, sent.data.id || null, threadId || null]
+      [makeId('MSG'), ticketId, now, sentFrom, to, safeSubject, body, sent.data.id || null, threadId || null]
     );
 
-    return { ok: true, messageId: sent.data.id || null };
+    return { ok: true, messageId: sent.data.id || null, sentFrom };
   } catch (err) {
     return { ok: false, error: 'gmail send failed' };
   }
