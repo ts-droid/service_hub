@@ -102,7 +102,7 @@ function keywordMatches(content, keyword) {
 
 async function fetchNewEmails() {
   const usersRes = await db.query(
-    "SELECT email, refresh_token, scope FROM user_oauth_tokens WHERE refresh_token IS NOT NULL AND refresh_token <> ''"
+    "SELECT email, refresh_token, scope, created_at FROM user_oauth_tokens WHERE refresh_token IS NOT NULL AND refresh_token <> ''"
   );
   const users = usersRes.rows.filter(u => hasScope(u.scope, GMAIL_READ_SCOPE));
   if (!users.length) return { ok: false, reason: 'no users with gmail.readonly consent' };
@@ -131,12 +131,6 @@ async function fetchNewEmails() {
   const MAX_THREADS_PER_USER = 250;
 
   const startInfo = resolveStartTime();
-  const afterDate = startInfo.used;
-  const yyyy = afterDate.getUTCFullYear();
-  const mm = String(afterDate.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(afterDate.getUTCDate()).padStart(2, '0');
-  // Read all incoming messages in connected mailboxes, not only shared-group aliases.
-  const query = `after:${yyyy}/${mm}/${dd} -in:chats -in:drafts -in:trash`;
 
   const existingThreads = await db.query('SELECT thread_id FROM tickets');
   const existingSet = new Set(existingThreads.rows.map(r => r.thread_id));
@@ -147,6 +141,16 @@ async function fetchNewEmails() {
   let created = 0;
 
   for (const user of users) {
+    const userCreatedAt = user.created_at ? new Date(user.created_at) : null;
+    const userStart = userCreatedAt && !Number.isNaN(userCreatedAt.getTime()) && userCreatedAt > startInfo.used
+      ? userCreatedAt
+      : startInfo.used;
+    const yyyy = userStart.getUTCFullYear();
+    const mm = String(userStart.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(userStart.getUTCDate()).padStart(2, '0');
+    // For new users, start importing from their first OAuth connect time.
+    const query = `after:${yyyy}/${mm}/${dd} -in:chats -in:drafts -in:trash`;
+
     const oauth2Client = getOauthClient(user.refresh_token);
     if (!oauth2Client) continue;
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
@@ -283,7 +287,7 @@ async function fetchNewEmails() {
   return {
     ok: true,
     created,
-    query,
+    query: `after:${startInfo.used.getUTCFullYear()}/${String(startInfo.used.getUTCMonth() + 1).padStart(2, '0')}/${String(startInfo.used.getUTCDate()).padStart(2, '0')} -in:chats -in:drafts -in:trash`,
     startTimeConfigured: startInfo.configured,
     startTimeUsed: startInfo.used.toISOString(),
     startTimeReason: startInfo.reason,
