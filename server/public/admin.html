@@ -73,6 +73,11 @@
             <button class="btn btn-primary" onclick="saveAiSettings()">Spara AI-inställningar</button>
           </div>
         </div>
+
+        <div class="card p-4 shadow-sm mt-4">
+          <div class="section-title">Signaturer (gruppmail)</div>
+          <div id="signaturesList" class="d-grid gap-2"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -254,6 +259,16 @@
           <div class="fw-bold">${r.key}</div>
           <input class="form-control" id="cfg_${r.key}" value="${(r.value || '').replace(/"/g, '&quot;')}">
           <button class="btn btn-outline-primary" onclick="saveConfigKey('${r.key}')">Spara</button>
+        </div>`).join('');
+
+      const signatures = rows.filter(r => r.key.startsWith('SIGNATURE_'));
+      const defaultSignatureKeys = ['SIGNATURE_SUPPORT', 'SIGNATURE_RMA', 'SIGNATURE_FINANCE', 'SIGNATURE_LOGISTICS', 'SIGNATURE_MARKETING', 'SIGNATURE_SALES'];
+      const signatureMap = new Map(signatures.map(s => [s.key, s.value || '']));
+      document.getElementById('signaturesList').innerHTML = defaultSignatureKeys.map(key => `
+        <div class="config-row">
+          <div class="fw-bold">${key}</div>
+          <textarea class="form-control" id="cfg_${key}" rows="3">${(signatureMap.get(key) || '').replace(/</g, '&lt;')}</textarea>
+          <button class="btn btn-outline-primary" onclick="saveConfigKey('${key}')">Spara</button>
         </div>`).join('');
     }
 

@@ -42,6 +42,15 @@ function getOauthClient(refreshToken) {
   return oauth2Client;
 }
 
+async function getGmailClientForEmail(email) {
+  const token = await getUserToken(email);
+  if (!token || !token.refresh_token) return null;
+  if (!hasScope(token.scope, GMAIL_SEND_SCOPE)) return null;
+  const oauth2Client = getOauthClient(token.refresh_token);
+  if (!oauth2Client) return null;
+  return google.gmail({ version: 'v1', auth: oauth2Client });
+}
+
 async function getUserToken(email) {
   const result = await db.query(
     'SELECT email, refresh_token, access_token, token_type, scope, expiry_date FROM user_oauth_tokens WHERE email = $1',
@@ -63,6 +72,12 @@ async function getConfigKeywords() {
     keywordsSales: parse('KEYWORDS_SALES'),
     keywordsSupport: parse('KEYWORDS_SUPPORT')
   };
+}
+
+async function getGroupSignature(groupName) {
+  const key = `SIGNATURE_${String(groupName || '').toUpperCase()}`;
+  const result = await db.query('SELECT value FROM config WHERE key = $1', [key]);
+  return String(result.rows[0]?.value || '').trim();
 }
 
 async function inferGroup(recipient, subject, body) {
@@ -320,47 +335,62 @@ async function sendMessage(gmail, fromAddress, to, subject, body, threadId) {
 }
 
 async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadId, ticketGroup) {
-  const token = await getUserToken(userEmail);
-  if (!token || !token.refresh_token) return { ok: false, error: 'gmail not connected for user' };
-  if (!hasScope(token.scope, GMAIL_SEND_SCOPE)) return { ok: false, error: 'gmail.send scope missing' };
-
-  const oauth2Client = getOauthClient(token.refresh_token);
-  if (!oauth2Client) return { ok: false, error: 'oauth client unavailable' };
-  const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
   const safeSubject = subject && subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject || ''}`;
   const preferredFrom = getGroupReplyAddress(ticketGroup);
   const fallbackFrom = userEmail;
-  let sent;
-  let sentFrom = fallbackFrom;
+  const signature = await getGroupSignature(ticketGroup);
+  const signedBody = signature ? `${String(body || '').trim()}\n\n${signature}` : String(body || '').trim();
+  const attempts = [];
+  const sendCandidates = [];
+  const seen = new Set();
+  const addCandidate = (authEmail, label) => {
+    const key = String(authEmail || '').toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    sendCandidates.push({ authEmail: key, fromAddress: key, label });
+  };
+  addCandidate(preferredFrom, 'group');
+  addCandidate(fallbackFrom, 'user');
 
-  try {
-    if (preferredFrom && preferredFrom.toLowerCase() !== fallbackFrom.toLowerCase()) {
-      try {
-        sent = await sendMessage(gmail, preferredFrom, to, safeSubject, body, threadId);
-        sentFrom = preferredFrom;
-      } catch (err) {
-        sent = await sendMessage(gmail, fallbackFrom, to, safeSubject, body, threadId);
-      }
-    } else {
-      sent = await sendMessage(gmail, fallbackFrom, to, safeSubject, body, threadId);
+  for (const candidate of sendCandidates) {
+    const gmail = await getGmailClientForEmail(candidate.authEmail);
+    if (!gmail) {
+      attempts.push(`${candidate.label}:${candidate.authEmail}=no_oauth_or_scope`);
+      continue;
     }
 
-    const now = new Date().toISOString();
-    const messageId = sent?.data?.id ? `MSG-${sent.data.id}` : makeId('MSG');
-    await db.query(
-      `INSERT INTO messages
-        (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
-       VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       ON CONFLICT (message_id) DO NOTHING`,
-      [messageId, ticketId, now, sentFrom, to, safeSubject, body, sent.data.id || null, threadId || null]
-    );
+    try {
+      let sent;
+      try {
+        sent = await sendMessage(gmail, candidate.fromAddress, to, safeSubject, signedBody, threadId);
+      } catch (err) {
+        const errCode = err?.response?.status;
+        if (threadId && (errCode === 404 || String(err?.response?.data?.error?.message || '').toLowerCase().includes('thread'))) {
+          sent = await sendMessage(gmail, candidate.fromAddress, to, safeSubject, signedBody, null);
+        } else {
+          throw err;
+        }
+      }
 
-    return { ok: true, messageId: sent.data.id || null, sentFrom };
-  } catch (err) {
-    return { ok: false, error: 'gmail send failed' };
+      const now = new Date().toISOString();
+      const messageId = sent?.data?.id ? `MSG-${sent.data.id}` : makeId('MSG');
+      await db.query(
+        `INSERT INTO messages
+          (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
+         VALUES
+          ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (message_id) DO NOTHING`,
+        [messageId, ticketId, now, candidate.fromAddress, to, safeSubject, signedBody, sent.data.id || null, sent.data.threadId || threadId || null]
+      );
+
+      return { ok: true, messageId: sent.data.id || null, sentFrom: candidate.fromAddress };
+    } catch (err) {
+      const errText = err?.response?.data?.error?.message || err?.message || 'gmail send failed';
+      attempts.push(`${candidate.label}:${candidate.authEmail}=${errText}`);
+    }
   }
+
+  return { ok: false, error: `gmail send failed (${attempts.join(' | ')})` };
 }
 
 function extractPlainBody(payload) {
