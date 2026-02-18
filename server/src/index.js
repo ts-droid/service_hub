@@ -286,19 +286,39 @@ app.get('/tickets/stats', requireAuth, async (req, res) => {
   });
 });
 
+app.get('/users/assignees', requireAuth, async (req, res) => {
+  const group = String(req.query?.group || '').trim().toUpperCase();
+  const result = await db.query(
+    `SELECT name, email, "group"
+     FROM users
+     WHERE active = TRUE
+     ORDER BY name ASC`
+  );
+  let users = result.rows;
+  if (group) users = users.filter(u => String(u.group || '').toUpperCase().split(',').map(s => s.trim()).includes(group));
+  res.json(users);
+});
+
 app.get('/tickets/:id', requireAuth, async (req, res) => {
   const ticketId = req.params.id;
   const email = req.user.email;
 
-  const ticketRes = await db.query('SELECT status, owner_email FROM tickets WHERE ticket_id = $1', [ticketId]);
+  const ticketRes = await db.query('SELECT status, owner_email, "group" FROM tickets WHERE ticket_id = $1', [ticketId]);
   if (!ticketRes.rows[0]) return res.status(404).json({ error: 'not found' });
 
   if (ticketRes.rows[0].status === 'Nytt') {
     await db.query('UPDATE tickets SET status = $1, owner_email = $2, updated_at = $3 WHERE ticket_id = $4', ['Pågår', email, nowIso(), ticketId]);
+    ticketRes.rows[0].status = 'Pågår';
+    ticketRes.rows[0].owner_email = email;
   }
 
   const msgRes = await db.query('SELECT "from", date, body FROM messages WHERE ticket_id = $1 ORDER BY date ASC', [ticketId]);
   res.json({
+    ticket: {
+      group: ticketRes.rows[0].group,
+      status: ticketRes.rows[0].status,
+      owner_email: ticketRes.rows[0].owner_email || null
+    },
     messages: msgRes.rows.map(m => ({ from: m.from, date: m.date, body: m.body || 'Ingen text tillgänglig.' }))
   });
 });
@@ -333,12 +353,28 @@ app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
 
 app.post('/tickets/:id/move', requireAuth, async (req, res) => {
   const ticketId = req.params.id;
-  const group = req.body?.group;
+  const group = String(req.body?.group || '').trim().toUpperCase();
+  const ownerEmailRaw = String(req.body?.owner_email || '').trim().toLowerCase();
   if (!group) return res.status(400).json({ error: 'group required' });
 
+  let ownerEmail = null;
+  let status = 'Nytt';
+  if (ownerEmailRaw) {
+    const ownerRes = await db.query(
+      'SELECT email, "group", active FROM users WHERE lower(email) = $1',
+      [ownerEmailRaw]
+    );
+    const owner = ownerRes.rows[0];
+    if (!owner || !owner.active) return res.status(400).json({ error: 'invalid owner' });
+    const ownerGroups = String(owner.group || '').toUpperCase().split(',').map(s => s.trim()).filter(Boolean);
+    if (!ownerGroups.includes(group)) return res.status(400).json({ error: 'owner not in selected group' });
+    ownerEmail = owner.email.toLowerCase();
+    status = 'Pågår';
+  }
+
   await db.query(
-    'UPDATE tickets SET "group" = $1, owner_email = NULL, status = $2, updated_at = $3 WHERE ticket_id = $4',
-    [group, 'Nytt', nowIso(), ticketId]
+    'UPDATE tickets SET "group" = $1, owner_email = $2, status = $3, updated_at = $4 WHERE ticket_id = $5',
+    [group, ownerEmail, status, nowIso(), ticketId]
   );
   res.json({ ok: true });
 });

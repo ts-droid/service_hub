@@ -118,6 +118,11 @@
                 <option value="MARKETING">MARKETING</option>
                 <option value="SALES">SALES</option>
               </select>
+              <span id="mCurrentGroupBadge" class="group-badge group-default">-</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="small fw-bold text-muted">Tilldela:</span>
+              <select id="mAssignee" class="form-select form-select-sm w-auto"></select>
               <button class="btn btn-sm btn-primary" onclick="doMove()">Spara & Flytta</button>
             </div>
             <div class="d-flex gap-2">
@@ -148,6 +153,7 @@
     let currentStatusTab = "Nytt";
     let geminiConfigured = false;
     let currentUserGroups = [];
+    let assignableUsers = [];
     const tModal = new bootstrap.Modal(document.getElementById('ticketModal'));
     const formatDateTime = (v) => {
       if (!v) return "";
@@ -261,6 +267,18 @@
         </div>`).join('');
     }
 
+    async function loadAssignableUsers(group) {
+      const qs = group ? `?group=${encodeURIComponent(group)}` : '';
+      const users = await api(`/users/assignees${qs}`);
+      if (!users) return;
+      assignableUsers = users;
+      const select = document.getElementById('mAssignee');
+      const options = ['<option value="">Ej tilldelad</option>'].concat(
+        users.map(u => `<option value="${esc(u.email)}">${esc(u.name || u.email)} (${esc(u.email)})</option>`)
+      );
+      select.innerHTML = options.join('');
+    }
+
     async function openTicket(id, subject, sender) {
       activeId = id;
       currentSenderEmail = sender;
@@ -272,6 +290,13 @@
 
       const res = await api(`/tickets/${id}`);
       if (!res) return;
+      const currentGroup = String(res.ticket?.group || '').toUpperCase();
+      document.getElementById('mGroup').value = currentGroup || 'SUPPORT';
+      const badge = document.getElementById('mCurrentGroupBadge');
+      badge.className = `group-badge ${groupClass(currentGroup)}`;
+      badge.innerText = currentGroup || '-';
+      await loadAssignableUsers(currentGroup);
+      document.getElementById('mAssignee').value = res.ticket?.owner_email || '';
       document.getElementById('mHistory').innerHTML = res.messages.map(m => `
         <div class="msg-bubble shadow-sm">
           <div class="msg-header">
@@ -318,12 +343,22 @@
 
     async function doMove() {
       const targetGroup = document.getElementById('mGroup').value;
-      if (confirm(`Flytta till ${targetGroup}? Ägare nollställs.`)) {
-        await api(`/tickets/${activeId}/move`, { method: 'POST', body: JSON.stringify({ group: targetGroup }) });
+      const assignee = document.getElementById('mAssignee').value;
+      const assignmentTxt = assignee ? ` och tilldela ${assignee}` : '';
+      if (confirm(`Flytta till ${targetGroup}${assignmentTxt}?`)) {
+        await api(`/tickets/${activeId}/move`, { method: 'POST', body: JSON.stringify({ group: targetGroup, owner_email: assignee || null }) });
         tModal.hide();
         refresh();
       }
     }
+
+    document.getElementById('mGroup').addEventListener('change', async (e) => {
+      const grp = String(e.target.value || '').toUpperCase();
+      const badge = document.getElementById('mCurrentGroupBadge');
+      badge.className = `group-badge ${groupClass(grp)}`;
+      badge.innerText = grp || '-';
+      await loadAssignableUsers(grp);
+    });
 
     async function doBlock() {
       if (confirm(`Blockera ${currentSenderEmail}?`)) {
