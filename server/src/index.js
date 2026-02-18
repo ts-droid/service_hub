@@ -287,16 +287,13 @@ app.get('/tickets/stats', requireAuth, async (req, res) => {
 });
 
 app.get('/users/assignees', requireAuth, async (req, res) => {
-  const group = String(req.query?.group || '').trim().toUpperCase();
   const result = await db.query(
     `SELECT name, email, "group"
      FROM users
      WHERE active = TRUE
      ORDER BY name ASC`
   );
-  let users = result.rows;
-  if (group) users = users.filter(u => String(u.group || '').toUpperCase().split(',').map(s => s.trim()).includes(group));
-  res.json(users);
+  res.json(result.rows);
 });
 
 app.get('/tickets/:id', requireAuth, async (req, res) => {
@@ -366,8 +363,6 @@ app.post('/tickets/:id/move', requireAuth, async (req, res) => {
     );
     const owner = ownerRes.rows[0];
     if (!owner || !owner.active) return res.status(400).json({ error: 'invalid owner' });
-    const ownerGroups = String(owner.group || '').toUpperCase().split(',').map(s => s.trim()).filter(Boolean);
-    if (!ownerGroups.includes(group)) return res.status(400).json({ error: 'owner not in selected group' });
     ownerEmail = owner.email.toLowerCase();
     status = 'Pågår';
   }

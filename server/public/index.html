@@ -267,9 +267,8 @@
         </div>`).join('');
     }
 
-    async function loadAssignableUsers(group) {
-      const qs = group ? `?group=${encodeURIComponent(group)}` : '';
-      const users = await api(`/users/assignees${qs}`);
+    async function loadAssignableUsers() {
+      const users = await api('/users/assignees');
       if (!users) return;
       assignableUsers = users;
       const select = document.getElementById('mAssignee');
@@ -295,7 +294,7 @@
       const badge = document.getElementById('mCurrentGroupBadge');
       badge.className = `group-badge ${groupClass(currentGroup)}`;
       badge.innerText = currentGroup || '-';
-      await loadAssignableUsers(currentGroup);
+      await loadAssignableUsers();
       document.getElementById('mAssignee').value = res.ticket?.owner_email || '';
       document.getElementById('mHistory').innerHTML = res.messages.map(m => `
         <div class="msg-bubble shadow-sm">
@@ -357,7 +356,6 @@
       const badge = document.getElementById('mCurrentGroupBadge');
       badge.className = `group-badge ${groupClass(grp)}`;
       badge.innerText = grp || '-';
-      await loadAssignableUsers(grp);
     });
 
     async function doBlock() {
