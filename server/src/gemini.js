@@ -1,27 +1,38 @@
 const axios = require('axios');
 const db = require('./db');
 
-async function getAiPrompt() {
-  const result = await db.query('SELECT value FROM config WHERE key = $1', ['AI_PROMPT']);
-  if (!result.rows[0]) return 'Skriv ett vanligt, kort och trevligt svar:';
-  return result.rows[0].value;
+async function getAiConfig() {
+  const result = await db.query(
+    'SELECT key, value FROM config WHERE key IN ($1, $2)',
+    ['AI_PROMPT', 'AI_LANGUAGE_RULE']
+  );
+  const map = new Map(result.rows.map((r) => [r.key, r.value]));
+  return {
+    prompt: map.get('AI_PROMPT') || 'Skriv ett vanligt, kort och trevligt svar:',
+    languageRuleTemplate:
+      map.get('AI_LANGUAGE_RULE') ||
+      'CRITICAL: Reply ONLY in {{LANGUAGE}}. Do not translate to another language and do not mix languages.'
+  };
 }
 
 async function getGeminiResponse(messageText) {
   const apiKey = (process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY missing' };
 
-  const systemPrompt = await getAiPrompt();
+  const aiConfig = await getAiConfig();
   const model = (process.env.OPENAI_MODEL || 'gpt-4.1-mini').trim();
   const url = 'https://api.openai.com/v1/responses';
   const detectedLanguage = detectPrimaryLanguage(messageText);
-  const languageRule = `CRITICAL: Reply ONLY in ${detectedLanguage}. Do not translate to another language and do not mix languages.`;
+  const languageRuleBase = aiConfig.languageRuleTemplate.includes('{{LANGUAGE}}')
+    ? aiConfig.languageRuleTemplate.replace(/\{\{LANGUAGE\}\}/g, detectedLanguage)
+    : `${aiConfig.languageRuleTemplate.trim()} Language: ${detectedLanguage}.`;
+  const languageRule = `${languageRuleBase} Do not translate to another language and do not mix languages.`;
 
   const makePayload = (extraUserText = '') => ({
     model,
     temperature: 0.2,
     input: [
-      { role: 'system', content: [{ type: 'input_text', text: systemPrompt }] },
+      { role: 'system', content: [{ type: 'input_text', text: aiConfig.prompt }] },
       { role: 'system', content: [{ type: 'input_text', text: languageRule }] },
       { role: 'user', content: [{ type: 'input_text', text: `KUNDENS MEDDELANDE:\n${messageText}${extraUserText}` }] }
     ]

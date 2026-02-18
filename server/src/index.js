@@ -447,7 +447,16 @@ app.get('/admin/jobs/gmail-sync/latest', requireAuth, requireAdmin, async (req, 
      LIMIT 1`
   );
   if (!result.rows[0]) return res.json({ ok: true, latest: null });
-  res.json({ ok: true, latest: result.rows[0] });
+  const latest = result.rows[0];
+  const sourceMatch = String(latest.details || '').match(/^\[([A-Z]+)\]/);
+  res.json({
+    ok: true,
+    latest: {
+      timestamp: latest.timestamp,
+      user_email: latest.user_email,
+      source: sourceMatch ? sourceMatch[1] : (latest.user_email ? 'MANUAL' : 'CRON')
+    }
+  });
 });
 
 async function ensureRuntimeSchema() {

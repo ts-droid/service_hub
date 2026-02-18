@@ -67,8 +67,10 @@
         <div class="card p-4 shadow-sm">
           <div class="section-title">AI Prompt</div>
           <textarea id="aiPrompt" class="form-control" rows="5" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
+          <label class="form-label fw-bold mt-3">AI Språkregel</label>
+          <textarea id="aiLanguageRule" class="form-control" rows="4" placeholder="Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ..."></textarea>
           <div class="d-flex justify-content-end mt-2">
-            <button class="btn btn-primary" onclick="saveAiPrompt()">Spara AI Prompt</button>
+            <button class="btn btn-primary" onclick="saveAiSettings()">Spara AI-inställningar</button>
           </div>
         </div>
       </div>
@@ -236,7 +238,7 @@
         return;
       }
       const ts = new Date(res.latest.timestamp).toLocaleString('sv-SE');
-      box.textContent = `Senaste synk: ${ts} • ${res.latest.user_email || 'CRON'} • ${res.latest.details || ''}`;
+      box.textContent = `Senaste synk: ${ts} • ${res.latest.source || res.latest.user_email || 'CRON'}`;
     }
 
     async function loadConfig() {
@@ -244,6 +246,7 @@
       if (!rows) return;
       const map = new Map(rows.map(r => [r.key, r.value]));
       document.getElementById('aiPrompt').value = map.get('AI_PROMPT') || '';
+      document.getElementById('aiLanguageRule').value = map.get('AI_LANGUAGE_RULE') || '';
 
       const keywords = rows.filter(r => r.key.startsWith('KEYWORDS_'));
       document.getElementById('keywordsList').innerHTML = keywords.map(r => `
@@ -254,10 +257,12 @@
         </div>`).join('');
     }
 
-    async function saveAiPrompt() {
-      const value = document.getElementById('aiPrompt').value.trim();
-      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key: 'AI_PROMPT', value }) });
-      alert('AI Prompt sparad');
+    async function saveAiSettings() {
+      const prompt = document.getElementById('aiPrompt').value.trim();
+      const languageRule = document.getElementById('aiLanguageRule').value.trim();
+      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key: 'AI_PROMPT', value: prompt }) });
+      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key: 'AI_LANGUAGE_RULE', value: languageRule }) });
+      alert('AI-inställningar sparade');
     }
 
     async function saveConfigKey(key) {
