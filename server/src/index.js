@@ -220,13 +220,12 @@ app.get('/tickets', requireAuth, async (req, res) => {
   }
 
   if (!group || group === 'Alla') {
-    if (userGroups.length) {
-      where.push(`"group" = ANY($${params.length + 1})`);
-      params.push(userGroups);
-    }
+    if (!userGroups.length) return res.json([]);
+    where.push(`UPPER("group") = ANY($${params.length + 1})`);
+    params.push(userGroups.map(g => g.toUpperCase()));
   } else {
-    where.push('"group" = $' + (params.length + 1));
-    params.push(group);
+    where.push('UPPER("group") = $' + (params.length + 1));
+    params.push(String(group).toUpperCase());
   }
 
   const sql = `SELECT ticket_id, subject, status, sender_email, "group", owner_email, priority, created_at
@@ -258,13 +257,14 @@ app.get('/tickets/stats', requireAuth, async (req, res) => {
   const params = [];
 
   if (!group || group === 'Alla') {
-    if (userGroups.length) {
-      where.push(`"group" = ANY($${params.length + 1})`);
-      params.push(userGroups);
+    if (!userGroups.length) {
+      return res.json({ Nytt: 0, 'Mina Pågående': 0, Väntar: 0, Löst: 0 });
     }
+    where.push(`UPPER("group") = ANY($${params.length + 1})`);
+    params.push(userGroups.map(g => g.toUpperCase()));
   } else {
-    where.push(`"group" = $${params.length + 1}`);
-    params.push(group);
+    where.push(`UPPER("group") = $${params.length + 1}`);
+    params.push(String(group).toUpperCase());
   }
 
   const rows = await db.query(
