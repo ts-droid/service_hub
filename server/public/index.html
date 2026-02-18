@@ -147,6 +147,7 @@
     let currentSenderEmail = "";
     let currentStatusTab = "Nytt";
     let geminiConfigured = false;
+    let currentUserGroups = [];
     const tModal = new bootstrap.Modal(document.getElementById('ticketModal'));
     const formatDateTime = (v) => {
       if (!v) return "";
@@ -182,6 +183,7 @@
       const me = await api('/me');
       if (!me) return;
       geminiConfigured = !!me.geminiConfigured;
+      currentUserGroups = String(me.group || '').split(',').map(s => s.trim()).filter(Boolean);
       const actions = [];
       if (me.isAdmin) {
         actions.push(`<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">Admin</a>`);
@@ -205,6 +207,12 @@
       const data = await api('/groups');
       if (!data) return;
       document.getElementById('filterGroup').innerHTML = data.groups.map(g => `<option value="${g}">${esc(g)}</option>`).join('');
+      if (currentUserGroups.length === 1) {
+        const onlyGroup = currentUserGroups[0].toUpperCase();
+        const select = document.getElementById('filterGroup');
+        const hasOption = Array.from(select.options).some(o => String(o.value).toUpperCase() === onlyGroup);
+        if (hasOption) select.value = onlyGroup;
+      }
       await refresh();
     }
 
