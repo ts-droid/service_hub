@@ -127,6 +127,14 @@ function normalizeMessageId(value) {
   return withoutBrackets.toLowerCase();
 }
 
+function normalizeSubject(value) {
+  return String(value || '')
+    .replace(/^\[[^\]]+\]\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 function isLikelyNewsletter(headers, from, subject, body) {
   const fromLc = String(from || '').toLowerCase();
   const subjectLc = String(subject || '').toLowerCase();
@@ -174,6 +182,7 @@ async function fetchNewEmails() {
     skippedNewsletter: 0,
     skippedNoGroup: 0,
     skippedDuplicateMessageId: 0,
+    skippedNearDuplicateSubject: 0,
     userListErrors: 0,
     threadFetchErrors: 0,
     userListErrorDetails: [],
@@ -183,7 +192,8 @@ async function fetchNewEmails() {
       skippedBlacklistedSender: [],
       skippedNewsletter: [],
       skippedNoGroup: [],
-      skippedDuplicateMessageId: []
+      skippedDuplicateMessageId: [],
+      skippedNearDuplicateSubject: []
     }
   };
   const MAX_SAMPLE = 5;
@@ -270,6 +280,7 @@ async function fetchNewEmails() {
       const to = getHeader('To');
       const subject = getHeader('Subject');
       const sourceMessageId = normalizeMessageId(getHeader('Message-ID'));
+      const normalizedSubject = normalizeSubject(subject);
       const sender = normalizeEmails(from)[0];
       if (!sender) {
         stats.skippedMissingSender += 1;
@@ -307,10 +318,35 @@ async function fetchNewEmails() {
         }
         continue;
       }
-
-      const ticketId = makeId('VEN');
       const now = new Date().toISOString();
       const lastDate = last.internalDate ? new Date(Number(last.internalDate)).toISOString() : now;
+
+      if (normalizedSubject) {
+        const nearDupe = await db.query(
+          `SELECT ticket_id
+           FROM tickets
+           WHERE sender_email = $1
+             AND UPPER("group") = $2
+             AND LOWER(REGEXP_REPLACE(REGEXP_REPLACE(subject, '^\\[[^\\]]+\\]\\s*', ''), '\\s+', ' ', 'g')) = $3
+             AND ABS(EXTRACT(EPOCH FROM (last_message_at - $4::timestamptz))) < 60
+           LIMIT 1`,
+          [sender, grp, normalizedSubject, lastDate]
+        );
+        if (nearDupe.rowCount) {
+          stats.skippedNearDuplicateSubject += 1;
+          if (stats.samples.skippedNearDuplicateSubject.length < MAX_SAMPLE) {
+            stats.samples.skippedNearDuplicateSubject.push({
+              threadId: t.id,
+              sender,
+              group: grp,
+              subject
+            });
+          }
+          continue;
+        }
+      }
+
+      const ticketId = makeId('VEN');
 
       const insertTicket = await db.query(
         `INSERT INTO tickets
@@ -380,15 +416,55 @@ function getGroupReplyAddress(groupName) {
   return GROUP_REPLY_FROM[String(groupName || '').toUpperCase()] || null;
 }
 
-async function sendMessage(gmail, fromAddress, to, subject, body, threadId) {
-  const message = [
+function buildRawMessage(fromAddress, to, subject, body, attachments) {
+  const files = Array.isArray(attachments) ? attachments : [];
+  if (!files.length) {
+    return [
+      `From: ${fromAddress}`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset="UTF-8"',
+      '',
+      body
+    ].join('\r\n');
+  }
+
+  const boundary = `vendora_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const parts = [
     `From: ${fromAddress}`,
     `To: ${to}`,
     `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: 7bit',
     '',
     body
-  ].join('\r\n');
+  ];
+
+  for (const file of files) {
+    const name = String(file.filename || 'attachment.bin').replace(/[\r\n"]/g, '_');
+    const mimeType = String(file.mimeType || 'application/octet-stream');
+    const data = String(file.dataBase64 || '').replace(/\s+/g, '');
+    if (!data) continue;
+    parts.push(
+      `--${boundary}`,
+      `Content-Type: ${mimeType}; name="${name}"`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${name}"`,
+      '',
+      data.replace(/(.{76})/g, '$1\r\n')
+    );
+  }
+  parts.push(`--${boundary}--`, '');
+  return parts.join('\r\n');
+}
+
+async function sendMessage(gmail, fromAddress, to, subject, body, threadId, attachments = []) {
+  const message = buildRawMessage(fromAddress, to, subject, body, attachments);
 
   const raw = Buffer.from(message).toString('base64url');
   return gmail.users.messages.send({
@@ -400,7 +476,7 @@ async function sendMessage(gmail, fromAddress, to, subject, body, threadId) {
   });
 }
 
-async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadId, ticketGroup) {
+async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadId, ticketGroup, attachments = []) {
   const safeSubject = subject && subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject || ''}`;
   const preferredFrom = getGroupReplyAddress(ticketGroup);
   const fallbackFrom = userEmail;
@@ -426,13 +502,13 @@ async function sendReplyFromUser(userEmail, ticketId, to, subject, body, threadI
     }
 
     try {
-      let sent;
-      try {
-        sent = await sendMessage(gmail, candidate.fromAddress, to, safeSubject, signedBody, threadId);
+        let sent;
+        try {
+        sent = await sendMessage(gmail, candidate.fromAddress, to, safeSubject, signedBody, threadId, attachments);
       } catch (err) {
         const errCode = err?.response?.status;
         if (threadId && (errCode === 404 || String(err?.response?.data?.error?.message || '').toLowerCase().includes('thread'))) {
-          sent = await sendMessage(gmail, candidate.fromAddress, to, safeSubject, signedBody, null);
+          sent = await sendMessage(gmail, candidate.fromAddress, to, safeSubject, signedBody, null, attachments);
         } else {
           throw err;
         }

@@ -213,10 +213,13 @@
           <div id="mHistory" class="history-container mb-3 shadow-sm"></div>
           <div id="mClassification" class="keyword-panel"></div>
 
-          <label class="small fw-bold mb-1 text-primary">AI Svarsförslag (OpenAI):</label>
-          <div id="mAi" class="ai-box mb-3 small text-muted shadow-sm">AI tänker...</div>
-
-          <textarea id="mReply" class="form-control shadow-sm mb-2" rows="5" placeholder="Skriv ditt svar... ID inkluderas automatiskt."></textarea>
+          <label class="small fw-bold mb-1 text-primary">Svar (OpenAI-förslag fylls i här):</label>
+          <textarea id="mReply" class="form-control shadow-sm mb-2" rows="8" placeholder="OpenAI analyserar och fyller i svar..."></textarea>
+          <div class="mb-2">
+            <label class="small fw-bold text-muted mb-1">Bifoga filer</label>
+            <input id="mAttachments" type="file" class="form-control" multiple onchange="renderAttachmentList()">
+            <div id="mAttachmentList" class="small text-muted mt-1"></div>
+          </div>
         </div>
         <div class="modal-footer bg-light border-0">
           <button class="btn btn-success w-100 fw-bold shadow-sm p-3" onclick="doReply()">SKICKA SVAR</button>
@@ -284,9 +287,6 @@
       }
       actions.push(`<a href="/auth/logout" class="btn btn-outline-light btn-sm fw-bold shadow-sm">Logga ut</a>`);
       document.getElementById('topActions').innerHTML = actions.join('');
-      if (!geminiConfigured) {
-        document.getElementById('mAi').innerText = 'AI inte konfigurerad: sätt OPENAI_API_KEY i Railway Variables.';
-      }
       syncManualGroupOptions();
       loadFilters();
     };
@@ -509,8 +509,10 @@
       currentSenderEmail = sender;
       document.getElementById('mSubject').innerText = subject;
       document.getElementById('mHistory').innerHTML = '<div class="p-3 text-center text-muted">Laddar historik...</div>';
-      document.getElementById('mAi').innerText = "OpenAI analyserar och tar fram ett svarsförslag...";
       document.getElementById('mReply').value = "";
+      document.getElementById('mReply').placeholder = "OpenAI analyserar och fyller i svar...";
+      document.getElementById('mAttachments').value = "";
+      document.getElementById('mAttachmentList').innerHTML = "";
       document.getElementById('mClassification').innerHTML = '<span class="text-muted small">Analyserar klassificering...</span>';
       tModal.show();
 
@@ -540,32 +542,61 @@
         const lastMsgText = res.messages[res.messages.length - 1].body;
         if (lastMsgText && lastMsgText !== "Ingen text tillgänglig.") {
           if (!geminiConfigured) {
-            document.getElementById('mAi').innerText = "AI inte konfigurerad: OPENAI_API_KEY saknas.";
+            document.getElementById('mReply').placeholder = "AI inte konfigurerad: OPENAI_API_KEY saknas.";
           } else {
             try {
               const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
               if (ai && ai.text) {
-                document.getElementById('mAi').innerText = ai.text;
                 document.getElementById('mReply').value = ai.text;
               } else {
-                document.getElementById('mAi').innerText = "AI svarade tomt. Kontrollera model/API-inställning.";
+                document.getElementById('mReply').placeholder = "AI svarade tomt. Skriv svaret manuellt.";
               }
             } catch (err) {
-              document.getElementById('mAi').innerText = `AI-fel: ${err.message}`;
+              document.getElementById('mReply').placeholder = `AI-fel: ${err.message}`;
             }
           }
         } else {
-          document.getElementById('mAi').innerText = "Kunde inte läsa innehållet för AI-förslag.";
+          document.getElementById('mReply').placeholder = "Kunde inte läsa innehållet för AI-förslag.";
         }
       }
     }
 
     function closeModalCleanly() { tModal.hide(); refresh(); }
 
+    function renderAttachmentList() {
+      const files = Array.from(document.getElementById('mAttachments').files || []);
+      const list = document.getElementById('mAttachmentList');
+      if (!files.length) {
+        list.innerHTML = "";
+        return;
+      }
+      list.innerHTML = files.map((f) => `${esc(f.name)} (${Math.round(f.size / 1024)} KB)`).join('<br>');
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          const base64 = result.includes(',') ? result.split(',')[1] : result;
+          resolve({
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            dataBase64: base64
+          });
+        };
+        reader.onerror = () => reject(new Error(`Kunde inte läsa fil: ${file.name}`));
+        reader.readAsDataURL(file);
+      });
+    }
+
     async function doReply() {
       const reply = document.getElementById('mReply').value;
       if (!reply) return alert("Vänligen skriv ett svar.");
-      await api(`/tickets/${activeId}/reply`, { method: 'POST', body: JSON.stringify({ text: reply }) });
+      const files = Array.from(document.getElementById('mAttachments').files || []);
+      if (files.length > 5) return alert('Max 5 bilagor.');
+      const attachments = await Promise.all(files.map(fileToBase64));
+      await api(`/tickets/${activeId}/reply`, { method: 'POST', body: JSON.stringify({ text: reply, attachments }) });
       alert('Svar registrerat.');
       tModal.hide();
       refresh();

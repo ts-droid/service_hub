@@ -17,7 +17,7 @@ const {
 } = require('./slack');
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '20mb' }));
 app.use(cookieParser());
 app.use(express.static('public'));
 const GMAIL_SYNC_LOCK_KEY = 2026021701;
@@ -517,6 +517,17 @@ app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
   const ticketId = req.params.id;
   const text = (req.body?.text || '').trim();
   if (!text) return res.status(400).json({ error: 'text required' });
+  const attachments = Array.isArray(req.body?.attachments) ? req.body.attachments : [];
+  if (attachments.length > 5) return res.status(400).json({ error: 'max 5 attachments' });
+  const normalizedAttachments = attachments.map((a) => ({
+    filename: String(a?.filename || '').trim(),
+    mimeType: String(a?.mimeType || 'application/octet-stream').trim(),
+    dataBase64: String(a?.dataBase64 || '').trim()
+  })).filter((a) => a.filename && a.dataBase64);
+  const totalApproxBytes = normalizedAttachments.reduce((sum, a) => sum + Math.floor(a.dataBase64.length * 0.75), 0);
+  if (totalApproxBytes > 12 * 1024 * 1024) {
+    return res.status(400).json({ error: 'attachments too large (max 12MB total)' });
+  }
 
   const ticketRes = await db.query('SELECT subject, sender_email, thread_id, "group" FROM tickets WHERE ticket_id = $1', [ticketId]);
   if (!ticketRes.rows[0]) return res.status(404).json({ error: 'ticket not found' });
@@ -529,7 +540,8 @@ app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
     ticket.subject,
     text,
     ticket.thread_id,
-    ticket.group
+    ticket.group,
+    normalizedAttachments
   );
   if (!sendResult.ok) return res.status(400).json({ error: sendResult.error });
 
