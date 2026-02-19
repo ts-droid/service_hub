@@ -115,6 +115,38 @@ function keywordMatches(content, keyword) {
   return pattern.test(content);
 }
 
+function getHeaderValue(headers, name) {
+  return (headers || []).find((h) => String(h.name || '').toLowerCase() === String(name || '').toLowerCase())?.value || '';
+}
+
+function isLikelyNewsletter(headers, from, subject, body) {
+  const fromLc = String(from || '').toLowerCase();
+  const subjectLc = String(subject || '').toLowerCase();
+  const bodyLc = String(body || '').toLowerCase();
+
+  const listUnsubscribe = getHeaderValue(headers, 'List-Unsubscribe');
+  const listId = getHeaderValue(headers, 'List-Id');
+  const precedence = getHeaderValue(headers, 'Precedence').toLowerCase();
+  const autoSubmitted = getHeaderValue(headers, 'Auto-Submitted').toLowerCase();
+
+  const hasListHeader = !!listUnsubscribe || !!listId || ['bulk', 'list', 'junk'].includes(precedence) || autoSubmitted === 'auto-generated';
+  if (hasListHeader) return true;
+
+  const hasNoReplySender = /no-?reply|newsletter|news@|hello@/.test(fromLc);
+  const hasNewsletterTerms = [
+    'unsubscribe',
+    'avregistrera',
+    'manage preferences',
+    'view in browser',
+    'nyhetsbrev',
+    'kampanjer',
+    'offers',
+    'shop now'
+  ].some((term) => bodyLc.includes(term) || subjectLc.includes(term));
+
+  return hasNoReplySender && hasNewsletterTerms;
+}
+
 async function fetchNewEmails() {
   const usersRes = await db.query(
     "SELECT email, refresh_token, scope, created_at FROM user_oauth_tokens WHERE refresh_token IS NOT NULL AND refresh_token <> ''"
@@ -131,6 +163,7 @@ async function fetchNewEmails() {
     skippedInternalSender: 0,
     skippedBlacklistedSender: 0,
     skippedMissingSender: 0,
+    skippedNewsletter: 0,
     skippedNoGroup: 0,
     userListErrors: 0,
     threadFetchErrors: 0,
@@ -139,6 +172,7 @@ async function fetchNewEmails() {
       skippedExistingThread: [],
       skippedInternalSender: [],
       skippedBlacklistedSender: [],
+      skippedNewsletter: [],
       skippedNoGroup: []
     }
   };
@@ -246,6 +280,14 @@ async function fetchNewEmails() {
       }
 
       const body = extractPlainBody(last.payload);
+      if (isLikelyNewsletter(headers, from, subject, body)) {
+        stats.skippedNewsletter += 1;
+        if (stats.samples.skippedNewsletter.length < MAX_SAMPLE) {
+          stats.samples.skippedNewsletter.push({ threadId: t.id, from, subject });
+        }
+        continue;
+      }
+
       const grp = await inferGroup(to, subject, body);
       if (!grp) {
         stats.skippedNoGroup += 1;
