@@ -107,23 +107,25 @@
           <button type="button" class="btn-close" onclick="closeModalCleanly()"></button>
         </div>
         <div class="modal-body">
-          <div class="d-flex justify-content-between align-items-center mb-4 p-2 bg-light rounded">
-            <div class="d-flex gap-2 align-items-center">
-              <span class="small fw-bold text-muted">Flytta till:</span>
-              <select id="mGroup" class="form-select form-select-sm w-auto">
-                <option value="SUPPORT">SUPPORT</option>
-                <option value="RMA">RMA</option>
-                <option value="FINANCE">FINANCE</option>
-                <option value="LOGISTICS">LOGISTICS</option>
-                <option value="MARKETING">MARKETING</option>
-                <option value="SALES">SALES</option>
-              </select>
-              <span id="mCurrentGroupBadge" class="group-badge group-default">-</span>
-            </div>
-            <div class="d-flex gap-2 align-items-center">
-              <span class="small fw-bold text-muted">Tilldela:</span>
-              <select id="mAssignee" class="form-select form-select-sm w-auto"></select>
-              <button class="btn btn-sm btn-primary" onclick="doMove()">Spara & Flytta</button>
+          <div class="d-flex justify-content-between align-items-start mb-4 p-2 bg-light rounded">
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex gap-2 align-items-center">
+                <span class="small fw-bold text-muted">Flytta till:</span>
+                <select id="mGroup" class="form-select form-select-sm w-auto">
+                  <option value="SUPPORT">SUPPORT</option>
+                  <option value="RMA">RMA</option>
+                  <option value="FINANCE">FINANCE</option>
+                  <option value="LOGISTICS">LOGISTICS</option>
+                  <option value="MARKETING">MARKETING</option>
+                  <option value="SALES">SALES</option>
+                </select>
+                <span id="mCurrentGroupBadge" class="group-badge group-default">-</span>
+              </div>
+              <div class="d-flex gap-2 align-items-center">
+                <span class="small fw-bold text-muted">Tilldela:</span>
+                <select id="mAssignee" class="form-select form-select-sm w-auto"></select>
+                <button class="btn btn-sm btn-primary" onclick="doMove()">Spara & Flytta</button>
+              </div>
             </div>
             <div class="d-flex gap-2">
               <button class="btn btn-outline-danger btn-sm" onclick="doBlock()">Blockera</button>
