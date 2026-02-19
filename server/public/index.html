@@ -97,9 +97,51 @@
       <div class="col-md-2 mt-auto">
         <button class="btn btn-primary w-100 shadow-sm" onclick="refresh()">Uppdatera</button>
       </div>
+      <div class="col-md-3 mt-auto">
+        <button class="btn btn-outline-primary w-100 shadow-sm" onclick="openManualTicketModal()">Nytt manuellt ärende</button>
+      </div>
     </div>
 
     <div id="ticketContainer" class="row">Laddar ärenden...</div>
+  </div>
+
+  <div class="modal fade" id="manualTicketModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-light border-0">
+          <h5 class="modal-title fw-bold">Skapa manuellt ärende</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="small fw-bold text-muted">Ämne</label>
+            <input id="manualSubject" class="form-control" placeholder="Kort ämne">
+          </div>
+          <div class="mb-2">
+            <label class="small fw-bold text-muted">Grupp</label>
+            <select id="manualGroup" class="form-select">
+              <option value="SUPPORT">SUPPORT</option>
+              <option value="RMA">RMA</option>
+              <option value="FINANCE">FINANCE</option>
+              <option value="LOGISTICS">LOGISTICS</option>
+              <option value="MARKETING">MARKETING</option>
+              <option value="SALES">SALES</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="small fw-bold text-muted">Kontakt (mail/telefon/namn)</label>
+            <input id="manualContact" class="form-control" placeholder="Ex: anna@kund.se eller +4670...">
+          </div>
+          <div>
+            <label class="small fw-bold text-muted">Beskrivning</label>
+            <textarea id="manualBody" class="form-control" rows="5" placeholder="Vad gäller ärendet?"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer bg-light border-0">
+          <button class="btn btn-primary w-100 fw-bold" onclick="createManualTicket()">Skapa ärende</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="modal fade" id="ticketModal" tabindex="-1" data-bs-backdrop="static">
@@ -167,6 +209,7 @@
     let currentMessageForClassification = { subject: '', body: '' };
     let keywordConfigMap = {};
     const tModal = new bootstrap.Modal(document.getElementById('ticketModal'));
+    const manualModal = new bootstrap.Modal(document.getElementById('manualTicketModal'));
     const formatDateTime = (v) => {
       if (!v) return "";
       const d = new Date(v);
@@ -213,6 +256,7 @@
       if (!geminiConfigured) {
         document.getElementById('mAi').innerText = 'AI inte konfigurerad: sätt OPENAI_API_KEY i Railway Variables.';
       }
+      syncManualGroupOptions();
       loadFilters();
     };
 
@@ -372,6 +416,45 @@
             </div>
           </div>
         </div>`).join('');
+    }
+
+    function openManualTicketModal() {
+      const userGroup = (currentUserGroups[0] || 'SUPPORT').toUpperCase();
+      document.getElementById('manualSubject').value = '';
+      document.getElementById('manualContact').value = '';
+      document.getElementById('manualBody').value = '';
+      document.getElementById('manualGroup').value = userGroup;
+      manualModal.show();
+    }
+
+    function syncManualGroupOptions() {
+      const select = document.getElementById('manualGroup');
+      if (!select) return;
+      const allowed = new Set(currentUserGroups.map((g) => String(g).toUpperCase()));
+      Array.from(select.options).forEach((opt) => {
+        opt.disabled = !isAdminUser && !allowed.has(String(opt.value).toUpperCase());
+      });
+      const firstEnabled = Array.from(select.options).find((opt) => !opt.disabled);
+      if (firstEnabled) select.value = firstEnabled.value;
+    }
+
+    async function createManualTicket() {
+      const subject = document.getElementById('manualSubject').value.trim();
+      const group = document.getElementById('manualGroup').value;
+      const contact = document.getElementById('manualContact').value.trim();
+      const body = document.getElementById('manualBody').value.trim();
+
+      if (!subject) return alert('Ange ämne.');
+      if (!body) return alert('Ange beskrivning.');
+
+      const created = await api('/tickets/manual', {
+        method: 'POST',
+        body: JSON.stringify({ subject, group, contact, body })
+      });
+      if (!created) return;
+      manualModal.hide();
+      await refresh();
+      alert(`Ärende skapat: ${created.ticket_id}`);
     }
 
     async function loadAssignableUsers() {

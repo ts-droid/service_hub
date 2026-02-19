@@ -10,6 +10,7 @@ const { getGeminiResponse } = require('./gemini');
 const { getOauthClient } = require('./google-oauth');
 const { signUser, setSessionCookie, clearSessionCookie } = require('./auth');
 const {
+  notifyTicketCreated,
   notifyTicketMoved,
   notifyTicketAssigned,
   notifyTicketStatusChanged
@@ -21,6 +22,15 @@ app.use(cookieParser());
 app.use(express.static('public'));
 const GMAIL_SYNC_LOCK_KEY = 2026021701;
 const KEYWORD_ORDER = ['RMA', 'FINANCE', 'LOGISTICS', 'SALES', 'MARKETING', 'SUPPORT'];
+
+app.get('/healthz', async (_req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ ok: true, service: 'service_hub', db: 'ok', ts: new Date().toISOString() });
+  } catch (err) {
+    res.status(503).json({ ok: false, service: 'service_hub', db: 'error', error: err.message });
+  }
+});
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -435,6 +445,54 @@ app.get('/tickets/:id', requireAuth, async (req, res) => {
     },
     messages: msgRes.rows.map(m => ({ from: m.from, date: m.date, subject: m.subject || '', body: m.body || 'Ingen text tillgänglig.' }))
   });
+});
+
+app.post('/tickets/manual', requireAuth, async (req, res) => {
+  const subject = String(req.body?.subject || '').trim();
+  const group = String(req.body?.group || '').trim().toUpperCase();
+  const contact = String(req.body?.contact || '').trim();
+  const body = String(req.body?.body || '').trim();
+
+  if (!subject) return res.status(400).json({ error: 'subject required' });
+  if (!group || !GROUPS.includes(group)) return res.status(400).json({ error: 'invalid group' });
+  if (!body) return res.status(400).json({ error: 'body required' });
+  const editableGroups = await getEditableKeywordGroups(req.user.email);
+  if (!editableGroups.includes(group)) return res.status(403).json({ error: 'group not allowed' });
+
+  const ticketId = makeId('VEN');
+  const createdAt = nowIso();
+  const sender = contact || `Manuell kontakt (${req.user.email})`;
+  const threadId = `manual-${ticketId}-${Date.now()}`;
+
+  await db.query(
+    `INSERT INTO tickets
+      (ticket_id, created_at, updated_at, subject, status, priority, "group", owner_email, sender_email, thread_id, source_message_id, last_message_at, tags)
+     VALUES
+      ($1,$2,$3,$4,'Nytt','Normal',$5,NULL,$6,$7,NULL,$8,'manual')`,
+    [ticketId, createdAt, createdAt, `[${ticketId}] ${subject}`, group, sender, threadId, createdAt]
+  );
+
+  await db.query(
+    `INSERT INTO messages
+      (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
+     VALUES
+      ($1,$2,$3,$4,$5,$6,$7,NULL,$8)`,
+    [makeId('MSG'), ticketId, createdAt, `${req.user.email} (manuell)`, contact || '', subject, body, threadId]
+  );
+
+  await db.query(
+    'INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)',
+    [ticketId, req.user.email, 'MANUAL_TICKET_CREATED', `Group=${group}; Contact=${contact || '-'}`]
+  );
+
+  await notifyTicketCreated({
+    ticketId,
+    group,
+    senderEmail: sender,
+    subject
+  });
+
+  res.json({ ok: true, ticket_id: ticketId });
 });
 
 app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
