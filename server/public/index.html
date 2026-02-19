@@ -68,6 +68,9 @@
 
     .msg-bubble { margin-bottom: 15px; padding: 10px; border-radius: 8px; background: #f8f9fa; border: 1px solid #f1f1f1; }
     .msg-header { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px; color: #0d6efd; }
+    .keyword-panel { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+    .keyword-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #fff4e6; color: #d9480f; font-size: 0.75rem; font-weight: 700; margin-right: 6px; margin-bottom: 6px; }
+    .keyword-hit { background: #fff3bf; padding: 0 2px; border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -134,6 +137,7 @@
           </div>
 
           <div id="mHistory" class="history-container mb-3 shadow-sm"></div>
+          <div id="mClassification" class="keyword-panel"></div>
 
           <label class="small fw-bold mb-1 text-primary">AI Svarsförslag (OpenAI):</label>
           <div id="mAi" class="ai-box mb-3 small text-muted shadow-sm">AI tänker...</div>
@@ -156,6 +160,10 @@
     let geminiConfigured = false;
     let currentUserGroups = [];
     let assignableUsers = [];
+    let isAdminUser = false;
+    let currentClassification = { matchedByGroup: {} };
+    let currentMessageForClassification = { subject: '', body: '' };
+    let keywordConfigMap = {};
     const tModal = new bootstrap.Modal(document.getElementById('ticketModal'));
     const formatDateTime = (v) => {
       if (!v) return "";
@@ -173,6 +181,7 @@
       if (g === 'SALES') return 'group-sales';
       return 'group-default';
     };
+    const configKeyForGroup = (group) => `KEYWORDS_${String(group || '').toUpperCase()}`;
 
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
@@ -191,6 +200,7 @@
       const me = await api('/me');
       if (!me) return;
       geminiConfigured = !!me.geminiConfigured;
+      isAdminUser = !!me.isAdmin;
       currentUserGroups = String(me.group || '').split(',').map(s => s.trim()).filter(Boolean);
       const actions = [];
       if (me.isAdmin) {
@@ -203,6 +213,93 @@
       }
       loadFilters();
     };
+
+    async function loadKeywordConfigMap() {
+      if (!isAdminUser) return;
+      const rows = await api('/admin/config');
+      if (!rows) return;
+      keywordConfigMap = rows
+        .filter(r => String(r.key || '').startsWith('KEYWORDS_'))
+        .reduce((acc, r) => ({ ...acc, [r.key]: r.value || '' }), {});
+    }
+
+    function keywordMatches(content, keyword) {
+      const kw = String(keyword || '').trim();
+      if (!kw) return false;
+      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])(${escaped})(?=[^\\p{L}\\p{N}]|$)`, 'giu');
+      return pattern.test(String(content || ''));
+    }
+
+    function highlightKeywords(text, keywords) {
+      let html = esc(text || '');
+      for (const kw of keywords || []) {
+        if (!kw) continue;
+        const escaped = esc(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])(${escaped})(?=[^\\p{L}\\p{N}]|$)`, 'giu');
+        html = html.replace(pattern, (m, p1, p2) => `${p1}<span class="keyword-hit">${p2}</span>`);
+      }
+      return html;
+    }
+
+    function parseKeywords(value) {
+      return String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    function getMatchedForGroup(group) {
+      const fromBackend = currentClassification?.matchedByGroup?.[group] || [];
+      if (fromBackend.length) return fromBackend;
+      const key = configKeyForGroup(group);
+      const keywords = parseKeywords(keywordConfigMap[key]);
+      const content = `${currentMessageForClassification.subject || ''} ${currentMessageForClassification.body || ''}`;
+      return keywords.filter(k => keywordMatches(content, k));
+    }
+
+    function renderClassificationPanel(group) {
+      const box = document.getElementById('mClassification');
+      const grp = String(group || '').toUpperCase();
+      const matched = getMatchedForGroup(grp);
+      const chips = matched.length
+        ? matched.map(k => `<span class="keyword-chip">${esc(k)}</span>`).join('')
+        : '<span class="text-muted small">Inga matchade keywords för vald grupp.</span>';
+
+      const adminControls = isAdminUser
+        ? `<div class="d-flex gap-2 mt-2">
+            <input id="mKeywordInput" class="form-control form-control-sm" placeholder="keyword">
+            <button class="btn btn-sm btn-outline-primary" onclick="updateKeywordForCurrentGroup('add')">+</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="updateKeywordForCurrentGroup('remove')">-</button>
+          </div>`
+        : '';
+
+      box.innerHTML = `
+        <div class="small fw-bold text-muted mb-1">Klassificering (${esc(grp || '-')})</div>
+        <div>${chips}</div>
+        ${adminControls}
+      `;
+    }
+
+    async function updateKeywordForCurrentGroup(action) {
+      if (!isAdminUser) return;
+      const group = String(document.getElementById('mGroup').value || '').toUpperCase();
+      const key = configKeyForGroup(group);
+      const input = document.getElementById('mKeywordInput');
+      const term = String(input?.value || '').trim();
+      if (!term) return;
+
+      const current = parseKeywords(keywordConfigMap[key]);
+      const termLc = term.toLowerCase();
+      let next = current;
+      if (action === 'add') {
+        if (!current.some(k => k.toLowerCase() === termLc)) next = [...current, term];
+      } else {
+        next = current.filter(k => k.toLowerCase() !== termLc);
+      }
+
+      keywordConfigMap[key] = next.join(',');
+      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key, value: keywordConfigMap[key] }) });
+      if (input) input.value = '';
+      renderClassificationPanel(group);
+    }
 
     function setTab(el, status) {
       document.querySelectorAll('#mainTabs .nav-link').forEach(link => link.classList.remove('active'));
@@ -221,6 +318,7 @@
         const hasOption = Array.from(select.options).some(o => String(o.value).toUpperCase() === onlyGroup);
         if (hasOption) select.value = onlyGroup;
       }
+      await loadKeywordConfigMap();
       await refresh();
     }
 
@@ -287,6 +385,7 @@
       document.getElementById('mHistory').innerHTML = '<div class="p-3 text-center text-muted">Laddar historik...</div>';
       document.getElementById('mAi').innerText = "OpenAI analyserar och tar fram ett svarsförslag...";
       document.getElementById('mReply').value = "";
+      document.getElementById('mClassification').innerHTML = '<span class="text-muted small">Analyserar klassificering...</span>';
       tModal.show();
 
       const res = await api(`/tickets/${id}`);
@@ -298,14 +397,18 @@
       badge.innerText = currentGroup || '-';
       await loadAssignableUsers();
       document.getElementById('mAssignee').value = res.ticket?.owner_email || '';
+      currentClassification = res.ticket?.classification || { matchedByGroup: {} };
+      const lastMsg = res.messages[res.messages.length - 1] || { subject: '', body: '' };
+      currentMessageForClassification = { subject: lastMsg.subject || '', body: lastMsg.body || '' };
       document.getElementById('mHistory').innerHTML = res.messages.map(m => `
         <div class="msg-bubble shadow-sm">
           <div class="msg-header">
             <span class="fw-bold">${esc(m.from)}</span>
             <span class="text-muted">${new Date(m.date).toLocaleString()}</span>
           </div>
-          <div class="small" style="white-space:pre-wrap;">${esc(m.body)}</div>
+          <div class="small" style="white-space:pre-wrap;">${highlightKeywords(m.body, getMatchedForGroup(currentGroup))}</div>
         </div>`).join('');
+      renderClassificationPanel(currentGroup);
 
       if (res.messages && res.messages.length > 0) {
         const lastMsgText = res.messages[res.messages.length - 1].body;
@@ -358,6 +461,13 @@
       const badge = document.getElementById('mCurrentGroupBadge');
       badge.className = `group-badge ${groupClass(grp)}`;
       badge.innerText = grp || '-';
+      renderClassificationPanel(grp);
+      const history = document.getElementById('mHistory');
+      history.querySelectorAll('.msg-bubble .small').forEach((el, idx) => {
+        // Re-rendering from existing textContent keeps escaping safe.
+        const raw = el.textContent || '';
+        el.innerHTML = highlightKeywords(raw, getMatchedForGroup(grp));
+      });
     });
 
     async function doBlock() {

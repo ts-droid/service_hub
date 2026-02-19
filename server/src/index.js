@@ -15,6 +15,37 @@ app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use(express.static('public'));
 const GMAIL_SYNC_LOCK_KEY = 2026021701;
+const KEYWORD_ORDER = ['RMA', 'FINANCE', 'LOGISTICS', 'SALES', 'MARKETING', 'SUPPORT'];
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function keywordMatches(content, keyword) {
+  const kw = String(keyword || '').trim().toLowerCase();
+  if (!kw) return false;
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegex(kw)}(?=[^\\p{L}\\p{N}]|$)`, 'iu');
+  return pattern.test(String(content || '').toLowerCase());
+}
+
+function parseKeywords(value) {
+  return String(value || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function buildClassificationDebug(subject, body, configRows) {
+  const content = `${subject || ''} ${body || ''}`;
+  const map = new Map(configRows.map((r) => [r.key, r.value]));
+  const matchedByGroup = {};
+
+  for (const group of KEYWORD_ORDER) {
+    const key = `KEYWORDS_${group}`;
+    const keywords = parseKeywords(map.get(key));
+    matchedByGroup[group] = keywords.filter((kw) => keywordMatches(content, kw));
+  }
+
+  const primaryGroup = KEYWORD_ORDER.find((g) => matchedByGroup[g]?.length) || null;
+  return { primaryGroup, matchedByGroup };
+}
 
 async function logSyncRun(source, userEmail, payload) {
   const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
@@ -309,14 +340,26 @@ app.get('/tickets/:id', requireAuth, async (req, res) => {
     ticketRes.rows[0].owner_email = email;
   }
 
-  const msgRes = await db.query('SELECT "from", date, body FROM messages WHERE ticket_id = $1 ORDER BY date ASC', [ticketId]);
+  const msgRes = await db.query('SELECT "from", date, subject, body FROM messages WHERE ticket_id = $1 ORDER BY date ASC', [ticketId]);
+  const configRes = await db.query(
+    `SELECT key, value
+     FROM config
+     WHERE key LIKE 'KEYWORDS_%'
+     ORDER BY key ASC`
+  );
+  const lastMsg = msgRes.rows[msgRes.rows.length - 1] || null;
+  const classification = lastMsg
+    ? buildClassificationDebug(lastMsg.subject || '', lastMsg.body || '', configRes.rows)
+    : { primaryGroup: null, matchedByGroup: {} };
+
   res.json({
     ticket: {
       group: ticketRes.rows[0].group,
       status: ticketRes.rows[0].status,
-      owner_email: ticketRes.rows[0].owner_email || null
+      owner_email: ticketRes.rows[0].owner_email || null,
+      classification
     },
-    messages: msgRes.rows.map(m => ({ from: m.from, date: m.date, body: m.body || 'Ingen text tillgänglig.' }))
+    messages: msgRes.rows.map(m => ({ from: m.from, date: m.date, subject: m.subject || '', body: m.body || 'Ingen text tillgänglig.' }))
   });
 });
 
