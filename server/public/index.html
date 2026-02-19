@@ -263,14 +263,17 @@
       const box = document.getElementById('mClassification');
       const grp = String(group || '').toUpperCase();
       const matched = getMatchedForGroup(grp);
+      const editableLabel = editableKeywordGroups.length
+        ? editableKeywordGroups.join(', ')
+        : 'Inga';
       const chips = matched.length
         ? matched.map(k => `<span class="keyword-chip">${esc(k)}</span>`).join('')
         : '<span class="text-muted small">Inga matchade keywords för vald grupp.</span>';
 
       const canEdit = canEditGroupKeywords(grp);
       const controlsLabel = canEdit
-        ? `<div class="text-muted small mt-1">Justera keywords för ${esc(grp)} direkt här</div>`
-        : `<div class="text-muted small mt-1">Endast användare i ${esc(grp)} eller Admin kan ändra keywords</div>`;
+        ? `<div class="text-muted small mt-1">Du kan redigera: <strong>${esc(editableLabel)}</strong></div>`
+        : `<div class="text-muted small mt-1">Du kan redigera: <strong>${esc(editableLabel)}</strong>. ${esc(grp)} är låst för ditt konto.</div>`;
       const adminControls = canEdit
         ? `<div class="d-flex gap-2 mt-2">
             <input id="mKeywordInput" class="form-control form-control-sm" placeholder="keyword">
