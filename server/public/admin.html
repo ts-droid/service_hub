@@ -87,18 +87,26 @@
         </div>
 
         <div class="card p-4 shadow-sm">
-          <div class="section-title">AI Prompt</div>
-          <textarea id="aiPrompt" class="form-control" rows="5" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
-          <label class="form-label fw-bold mt-3">AI Språkregel</label>
-          <textarea id="aiLanguageRule" class="form-control" rows="4" placeholder="Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ..."></textarea>
-          <div class="d-flex justify-content-end mt-2">
-            <button class="btn btn-primary" onclick="saveAiSettings()">Spara AI-inställningar</button>
+          <div class="section-title">AI & Signaturer</div>
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label fw-bold">Signatur (gruppmail)</label>
+              <select id="signatureSelect" class="form-select mb-2"></select>
+              <textarea id="signatureEditor" class="form-control" rows="8" placeholder="Skriv signatur för vald grupp..."></textarea>
+              <div class="d-flex justify-content-end mt-2">
+                <button class="btn btn-outline-primary" onclick="saveSelectedSignature()">Spara signatur</button>
+              </div>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label fw-bold">AI Prompt</label>
+              <textarea id="aiPrompt" class="form-control" rows="5" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
+              <label class="form-label fw-bold mt-3">AI Språkregel</label>
+              <textarea id="aiLanguageRule" class="form-control" rows="4" placeholder="Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ..."></textarea>
+              <div class="d-flex justify-content-end mt-2">
+                <button class="btn btn-primary" onclick="saveAiSettings()">Spara AI-inställningar</button>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div class="card p-4 shadow-sm mt-4">
-          <div class="section-title">Signaturer (gruppmail)</div>
-          <div id="signaturesList" class="d-grid gap-2"></div>
         </div>
       </div>
     </div>
@@ -150,6 +158,8 @@
     const editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
     let editUserEmail = null;
     let blacklistIndex = new Map();
+    let signatureValues = new Map();
+    const defaultSignatureKeys = ['SIGNATURE_SUPPORT', 'SIGNATURE_RMA', 'SIGNATURE_FINANCE', 'SIGNATURE_LOGISTICS', 'SIGNATURE_MARKETING', 'SIGNATURE_SALES'];
 
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
@@ -284,14 +294,30 @@
         </div>`).join('');
 
       const signatures = rows.filter(r => r.key.startsWith('SIGNATURE_'));
-      const defaultSignatureKeys = ['SIGNATURE_SUPPORT', 'SIGNATURE_RMA', 'SIGNATURE_FINANCE', 'SIGNATURE_LOGISTICS', 'SIGNATURE_MARKETING', 'SIGNATURE_SALES'];
-      const signatureMap = new Map(signatures.map(s => [s.key, s.value || '']));
-      document.getElementById('signaturesList').innerHTML = defaultSignatureKeys.map(key => `
-        <div class="config-row">
-          <div class="fw-bold">${key}</div>
-          <textarea class="form-control" id="cfg_${key}" rows="3">${(signatureMap.get(key) || '').replace(/</g, '&lt;')}</textarea>
-          <button class="btn btn-outline-primary" onclick="saveConfigKey('${key}')">Spara</button>
-        </div>`).join('');
+      signatureValues = new Map(signatures.map(s => [s.key, s.value || '']));
+
+      const signatureSelect = document.getElementById('signatureSelect');
+      signatureSelect.innerHTML = defaultSignatureKeys
+        .map((key) => `<option value="${key}">${key.replace('SIGNATURE_', '')}</option>`)
+        .join('');
+      if (!signatureSelect.dataset.bound) {
+        signatureSelect.addEventListener('change', onSignatureSelectChange);
+        signatureSelect.dataset.bound = '1';
+      }
+      onSignatureSelectChange();
+    }
+
+    function onSignatureSelectChange() {
+      const key = document.getElementById('signatureSelect').value;
+      document.getElementById('signatureEditor').value = signatureValues.get(key) || '';
+    }
+
+    async function saveSelectedSignature() {
+      const key = document.getElementById('signatureSelect').value;
+      const value = document.getElementById('signatureEditor').value.trim();
+      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key, value }) });
+      signatureValues.set(key, value);
+      alert('Signatur sparad');
     }
 
     async function saveAiSettings() {
