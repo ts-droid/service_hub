@@ -9,6 +9,11 @@ const { fetchNewEmails, sendReplyFromUser, GMAIL_READ_SCOPE, GMAIL_SEND_SCOPE } 
 const { getGeminiResponse } = require('./gemini');
 const { getOauthClient } = require('./google-oauth');
 const { signUser, setSessionCookie, clearSessionCookie } = require('./auth');
+const {
+  notifyTicketMoved,
+  notifyTicketAssigned,
+  notifyTicketStatusChanged
+} = require('./slack');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -465,16 +470,22 @@ app.post('/tickets/:id/move', requireAuth, async (req, res) => {
   const group = String(req.body?.group || '').trim().toUpperCase();
   if (!group) return res.status(400).json({ error: 'group required' });
 
-  await db.query(
+  const updated = await db.query(
     'UPDATE tickets SET "group" = $1, owner_email = $2, status = $3, updated_at = $4 WHERE ticket_id = $5',
     [group, null, 'Nytt', nowIso(), ticketId]
   );
+  if (!updated.rowCount) return res.status(404).json({ error: 'ticket not found' });
+  await notifyTicketMoved({ ticketId, group, actorEmail: req.user.email });
   res.json({ ok: true });
 });
 
 app.post('/tickets/:id/assign', requireAuth, async (req, res) => {
   const ticketId = req.params.id;
   const ownerEmailRaw = String(req.body?.owner_email || '').trim().toLowerCase();
+  const current = await db.query('SELECT owner_email, "group" FROM tickets WHERE ticket_id = $1', [ticketId]);
+  if (!current.rows[0]) return res.status(404).json({ error: 'ticket not found' });
+  const previousOwner = String(current.rows[0].owner_email || '').toLowerCase();
+  const currentGroup = current.rows[0].group;
 
   let ownerEmail = null;
   let status = 'Nytt';
@@ -493,6 +504,15 @@ app.post('/tickets/:id/assign', requireAuth, async (req, res) => {
     'UPDATE tickets SET owner_email = $1, status = $2, updated_at = $3 WHERE ticket_id = $4',
     [ownerEmail, status, nowIso(), ticketId]
   );
+
+  if (ownerEmail && ownerEmail !== previousOwner) {
+    await notifyTicketAssigned({
+      ticketId,
+      ownerEmail,
+      group: currentGroup || null,
+      actorEmail: req.user.email
+    });
+  }
   res.json({ ok: true });
 });
 
@@ -502,7 +522,14 @@ app.post('/tickets/:id/block', requireAuth, async (req, res) => {
   if (!email) return res.status(400).json({ error: 'email required' });
 
   await db.query('INSERT INTO blacklist (email, blocked_at) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING', [email, nowIso()]);
-  await db.query('UPDATE tickets SET status = $1, updated_at = $2 WHERE ticket_id = $3', ['Löst', nowIso(), ticketId]);
+  const updated = await db.query('UPDATE tickets SET status = $1, updated_at = $2 WHERE ticket_id = $3 RETURNING "group"', ['Löst', nowIso(), ticketId]);
+  if (!updated.rowCount) return res.status(404).json({ error: 'ticket not found' });
+  await notifyTicketStatusChanged({
+    ticketId,
+    status: 'Löst',
+    group: updated.rows[0].group,
+    actorEmail: req.user.email
+  });
   res.json({ ok: true });
 });
 
@@ -511,7 +538,14 @@ app.post('/tickets/:id/status', requireAuth, async (req, res) => {
   const status = req.body?.status;
   if (!status) return res.status(400).json({ error: 'status required' });
 
-  await db.query('UPDATE tickets SET status = $1, updated_at = $2 WHERE ticket_id = $3', [status, nowIso(), ticketId]);
+  const updated = await db.query('UPDATE tickets SET status = $1, updated_at = $2 WHERE ticket_id = $3 RETURNING "group"', [status, nowIso(), ticketId]);
+  if (!updated.rowCount) return res.status(404).json({ error: 'ticket not found' });
+  await notifyTicketStatusChanged({
+    ticketId,
+    status,
+    group: updated.rows[0].group,
+    actorEmail: req.user.email
+  });
   res.json({ ok: true });
 });
 

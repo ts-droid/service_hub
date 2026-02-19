@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const db = require('./db');
 const { makeId, normalizeEmails, isInternal } = require('./utils');
+const { notifyTicketCreated } = require('./slack');
 
 const GMAIL_READ_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
@@ -355,6 +356,12 @@ async function fetchNewEmails() {
       existingSet.add(t.id);
       created += 1;
       stats.inserted += 1;
+      await notifyTicketCreated({
+        ticketId,
+        group: grp,
+        senderEmail: sender,
+        subject: subject || ''
+      });
     }
   }
 
