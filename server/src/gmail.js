@@ -119,6 +119,13 @@ function getHeaderValue(headers, name) {
   return (headers || []).find((h) => String(h.name || '').toLowerCase() === String(name || '').toLowerCase())?.value || '';
 }
 
+function normalizeMessageId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const withoutBrackets = raw.replace(/^<+|>+$/g, '');
+  return withoutBrackets.toLowerCase();
+}
+
 function isLikelyNewsletter(headers, from, subject, body) {
   const fromLc = String(from || '').toLowerCase();
   const subjectLc = String(subject || '').toLowerCase();
@@ -165,6 +172,7 @@ async function fetchNewEmails() {
     skippedMissingSender: 0,
     skippedNewsletter: 0,
     skippedNoGroup: 0,
+    skippedDuplicateMessageId: 0,
     userListErrors: 0,
     threadFetchErrors: 0,
     userListErrorDetails: [],
@@ -173,7 +181,8 @@ async function fetchNewEmails() {
       skippedInternalSender: [],
       skippedBlacklistedSender: [],
       skippedNewsletter: [],
-      skippedNoGroup: []
+      skippedNoGroup: [],
+      skippedDuplicateMessageId: []
     }
   };
   const MAX_SAMPLE = 5;
@@ -259,6 +268,7 @@ async function fetchNewEmails() {
       const from = getHeader('From');
       const to = getHeader('To');
       const subject = getHeader('Subject');
+      const sourceMessageId = normalizeMessageId(getHeader('Message-ID'));
       const sender = normalizeEmails(from)[0];
       if (!sender) {
         stats.skippedMissingSender += 1;
@@ -303,15 +313,22 @@ async function fetchNewEmails() {
 
       const insertTicket = await db.query(
         `INSERT INTO tickets
-          (ticket_id, created_at, updated_at, subject, status, priority, "group", owner_email, sender_email, thread_id, last_message_at, tags)
+          (ticket_id, created_at, updated_at, subject, status, priority, "group", owner_email, sender_email, thread_id, source_message_id, last_message_at, tags)
          VALUES
-          ($1,$2,$3,$4,'Nytt','Normal',$5,NULL,$6,$7,$8,'')
-         ON CONFLICT (thread_id) DO NOTHING`,
-        [ticketId, now, now, `[${ticketId}] ${subject || ''}`.trim(), grp, sender, t.id, lastDate]
+          ($1,$2,$3,$4,'Nytt','Normal',$5,NULL,$6,$7,$8,$9,'')
+         ON CONFLICT DO NOTHING`,
+        [ticketId, now, now, `[${ticketId}] ${subject || ''}`.trim(), grp, sender, t.id, sourceMessageId || null, lastDate]
       );
       if (!insertTicket.rowCount) {
         existingSet.add(t.id);
-        stats.skippedExistingThread += 1;
+        if (sourceMessageId) {
+          stats.skippedDuplicateMessageId += 1;
+          if (stats.samples.skippedDuplicateMessageId.length < MAX_SAMPLE) {
+            stats.samples.skippedDuplicateMessageId.push({ threadId: t.id, sourceMessageId, subject });
+          }
+        } else {
+          stats.skippedExistingThread += 1;
+        }
         continue;
       }
 

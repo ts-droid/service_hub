@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   owner_email TEXT,
   sender_email TEXT NOT NULL,
   thread_id TEXT NOT NULL UNIQUE,
+  source_message_id TEXT,
   last_message_at TIMESTAMPTZ NOT NULL,
   tags TEXT
 );
@@ -70,3 +71,6 @@ CREATE TABLE IF NOT EXISTS user_oauth_tokens (
 CREATE INDEX IF NOT EXISTS idx_tickets_group_status ON tickets("group", status);
 CREATE INDEX IF NOT EXISTS idx_tickets_owner ON tickets(owner_email);
 CREATE INDEX IF NOT EXISTS idx_messages_ticket ON messages(ticket_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_source_message_id
+  ON tickets(source_message_id)
+  WHERE source_message_id IS NOT NULL;

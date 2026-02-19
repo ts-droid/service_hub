@@ -613,6 +613,10 @@ async function ensureRuntimeSchema() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await db.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS source_message_id TEXT`);
+  await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_source_message_id
+    ON tickets(source_message_id)
+    WHERE source_message_id IS NOT NULL`);
 }
 
 async function start() {
