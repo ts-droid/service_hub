@@ -85,7 +85,7 @@
     <ul class="nav nav-tabs mb-4 border-0 shadow-sm bg-white rounded main-tabs" id="mainTabs">
       <li class="nav-item"><a class="nav-link active" data-status="Nytt" onclick="setTab(this, 'Nytt')"><span>Nytt</span><span id="countNytt" class="tab-count">0</span></a></li>
       <li class="nav-item"><a class="nav-link" data-status="Mina Pågående" onclick="setTab(this, 'Mina Pågående')"><span>Mina Pågående</span><span id="countMinaPagaende" class="tab-count">0</span></a></li>
-      <li class="nav-item"><a class="nav-link" data-status="Väntar" onclick="setTab(this, 'Väntar')"><span>Väntar</span><span id="countVantar" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link" data-status="Andras Pågående" onclick="setTab(this, 'Andras Pågående')"><span>Andras Pågående</span><span id="countAndrasPagaende" class="tab-count">0</span></a></li>
       <li class="nav-item"><a class="nav-link" data-status="Löst" onclick="setTab(this, 'Löst')"><span>Löst</span><span id="countLost" class="tab-count">0</span></a></li>
     </ul>
 
@@ -129,8 +129,16 @@
             </select>
           </div>
           <div class="mb-2">
-            <label class="small fw-bold text-muted">Kontakt (mail/telefon/namn)</label>
-            <input id="manualContact" class="form-control" placeholder="Ex: anna@kund.se eller +4670...">
+            <label class="small fw-bold text-muted">Namn</label>
+            <input id="manualContactName" class="form-control" placeholder="Ex: Anna Andersson">
+          </div>
+          <div class="mb-2">
+            <label class="small fw-bold text-muted">Telefonnummer</label>
+            <input id="manualContactPhone" class="form-control" placeholder="Ex: +46 70 123 45 67">
+          </div>
+          <div class="mb-2">
+            <label class="small fw-bold text-muted">Mail</label>
+            <input id="manualContactEmail" class="form-control" placeholder="Ex: anna@kund.se">
           </div>
           <div>
             <label class="small fw-bold text-muted">Beskrivning</label>
@@ -380,7 +388,7 @@
       if (!stats) return;
       document.getElementById('countNytt').innerText = stats['Nytt'] || 0;
       document.getElementById('countMinaPagaende').innerText = stats['Mina Pågående'] || 0;
-      document.getElementById('countVantar').innerText = stats['Väntar'] || 0;
+      document.getElementById('countAndrasPagaende').innerText = stats['Andras Pågående'] || 0;
       document.getElementById('countLost').innerText = stats['Löst'] || 0;
     }
 
@@ -421,7 +429,9 @@
     function openManualTicketModal() {
       const userGroup = (currentUserGroups[0] || 'SUPPORT').toUpperCase();
       document.getElementById('manualSubject').value = '';
-      document.getElementById('manualContact').value = '';
+      document.getElementById('manualContactName').value = '';
+      document.getElementById('manualContactPhone').value = '';
+      document.getElementById('manualContactEmail').value = '';
       document.getElementById('manualBody').value = '';
       document.getElementById('manualGroup').value = userGroup;
       manualModal.show();
@@ -441,15 +451,18 @@
     async function createManualTicket() {
       const subject = document.getElementById('manualSubject').value.trim();
       const group = document.getElementById('manualGroup').value;
-      const contact = document.getElementById('manualContact').value.trim();
+      const contactName = document.getElementById('manualContactName').value.trim();
+      const contactPhone = document.getElementById('manualContactPhone').value.trim();
+      const contactEmail = document.getElementById('manualContactEmail').value.trim();
       const body = document.getElementById('manualBody').value.trim();
 
       if (!subject) return alert('Ange ämne.');
       if (!body) return alert('Ange beskrivning.');
+      if (!contactName && !contactPhone && !contactEmail) return alert('Ange minst en kontaktuppgift (namn, telefon eller mail).');
 
       const created = await api('/tickets/manual', {
         method: 'POST',
-        body: JSON.stringify({ subject, group, contact, body })
+        body: JSON.stringify({ subject, group, contact_name: contactName, contact_phone: contactPhone, contact_email: contactEmail, body })
       });
       if (!created) return;
       manualModal.hide();

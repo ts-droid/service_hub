@@ -284,6 +284,11 @@ app.get('/tickets', requireAuth, async (req, res) => {
       params.push('Pågår');
       where.push('owner_email = $' + (params.length + 1));
       params.push(email);
+    } else if (status === 'Andras Pågående') {
+      where.push('status = $' + (params.length + 1));
+      params.push('Pågår');
+      where.push('(owner_email IS NULL OR owner_email <> $' + (params.length + 1) + ')');
+      params.push(email);
     } else if (status !== 'Alla') {
       where.push('status = $' + (params.length + 1));
       params.push(status);
@@ -329,7 +334,7 @@ app.get('/tickets/stats', requireAuth, async (req, res) => {
 
   if (!group || group === 'Alla') {
     if (!userGroups.length) {
-      return res.json({ Nytt: 0, 'Mina Pågående': 0, Väntar: 0, Löst: 0 });
+      return res.json({ Nytt: 0, 'Mina Pågående': 0, 'Andras Pågående': 0, Väntar: 0, Löst: 0 });
     }
     where.push(`UPPER("group") = ANY($${params.length + 1})`);
     params.push(userGroups.map(g => g.toUpperCase()));
@@ -343,7 +348,8 @@ app.get('/tickets/stats', requireAuth, async (req, res) => {
       COUNT(*) FILTER (WHERE status = 'Nytt') AS nytt,
       COUNT(*) FILTER (WHERE status = 'Väntar') AS vantar,
       COUNT(*) FILTER (WHERE status = 'Löst') AS lost,
-      COUNT(*) FILTER (WHERE status = 'Pågår' AND owner_email = $${params.length + 1}) AS mina_pagaende
+      COUNT(*) FILTER (WHERE status = 'Pågår' AND owner_email = $${params.length + 1}) AS mina_pagaende,
+      COUNT(*) FILTER (WHERE status = 'Pågår' AND (owner_email IS NULL OR owner_email <> $${params.length + 1})) AS andras_pagaende
      FROM tickets
      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`,
     [...params, email]
@@ -352,6 +358,7 @@ app.get('/tickets/stats', requireAuth, async (req, res) => {
   res.json({
     Nytt: Number(rows.rows[0]?.nytt || 0),
     'Mina Pågående': Number(rows.rows[0]?.mina_pagaende || 0),
+    'Andras Pågående': Number(rows.rows[0]?.andras_pagaende || 0),
     Väntar: Number(rows.rows[0]?.vantar || 0),
     Löst: Number(rows.rows[0]?.lost || 0)
   });
@@ -450,19 +457,30 @@ app.get('/tickets/:id', requireAuth, async (req, res) => {
 app.post('/tickets/manual', requireAuth, async (req, res) => {
   const subject = String(req.body?.subject || '').trim();
   const group = String(req.body?.group || '').trim().toUpperCase();
-  const contact = String(req.body?.contact || '').trim();
+  const contactName = String(req.body?.contact_name || '').trim();
+  const contactPhone = String(req.body?.contact_phone || '').trim();
+  const contactEmail = String(req.body?.contact_email || '').trim().toLowerCase();
   const body = String(req.body?.body || '').trim();
 
   if (!subject) return res.status(400).json({ error: 'subject required' });
   if (!group || !GROUPS.includes(group)) return res.status(400).json({ error: 'invalid group' });
   if (!body) return res.status(400).json({ error: 'body required' });
+  if (!contactName && !contactPhone && !contactEmail) {
+    return res.status(400).json({ error: 'at least one contact field required' });
+  }
   const editableGroups = await getEditableKeywordGroups(req.user.email);
   if (!editableGroups.includes(group)) return res.status(403).json({ error: 'group not allowed' });
 
   const ticketId = makeId('VEN');
   const createdAt = nowIso();
-  const sender = contact || `Manuell kontakt (${req.user.email})`;
+  const sender = contactEmail || contactName || contactPhone || `Manuell kontakt (${req.user.email})`;
   const threadId = `manual-${ticketId}-${Date.now()}`;
+  const contactLines = [
+    `Namn: ${contactName || '-'}`,
+    `Telefonnummer: ${contactPhone || '-'}`,
+    `Mail: ${contactEmail || '-'}`
+  ];
+  const bodyWithContact = `${contactLines.join('\n')}\n\n${body}`;
 
   await db.query(
     `INSERT INTO tickets
@@ -477,12 +495,12 @@ app.post('/tickets/manual', requireAuth, async (req, res) => {
       (message_id, ticket_id, date, "from", "to", subject, body, gmail_message_id, thread_id)
      VALUES
       ($1,$2,$3,$4,$5,$6,$7,NULL,$8)`,
-    [makeId('MSG'), ticketId, createdAt, `${req.user.email} (manuell)`, contact || '', subject, body, threadId]
+    [makeId('MSG'), ticketId, createdAt, `${req.user.email} (manuell)`, contactEmail || '', subject, bodyWithContact, threadId]
   );
 
   await db.query(
     'INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)',
-    [ticketId, req.user.email, 'MANUAL_TICKET_CREATED', `Group=${group}; Contact=${contact || '-'}`]
+    [ticketId, req.user.email, 'MANUAL_TICKET_CREATED', `Group=${group}; Name=${contactName || '-'}; Phone=${contactPhone || '-'}; Email=${contactEmail || '-'}`]
   );
 
   await notifyTicketCreated({
