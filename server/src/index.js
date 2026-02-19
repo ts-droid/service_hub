@@ -47,6 +47,31 @@ function buildClassificationDebug(subject, body, configRows) {
   return { primaryGroup, matchedByGroup };
 }
 
+function parseKeywordList(value) {
+  return String(value || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+async function getUserRow(email) {
+  const result = await db.query('SELECT email, "group", role, active FROM users WHERE lower(email) = $1', [String(email || '').toLowerCase()]);
+  return result.rows[0] || null;
+}
+
+async function isAdminUserEmail(email) {
+  const lowerEmail = String(email || '').toLowerCase();
+  const adminList = (process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean);
+  if (adminList.includes(lowerEmail)) return true;
+  const user = await getUserRow(lowerEmail);
+  return !!user && String(user.role || '').toLowerCase() === 'admin';
+}
+
+async function getEditableKeywordGroups(email) {
+  const isAdmin = await isAdminUserEmail(email);
+  if (isAdmin) return [...GROUPS];
+  const user = await getUserRow(email);
+  if (!user) return [];
+  return String(user.group || '').split(',').map((g) => g.trim().toUpperCase()).filter((g) => GROUPS.includes(g));
+}
+
 async function logSyncRun(source, userEmail, payload) {
   const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
   await db.query(
@@ -325,6 +350,50 @@ app.get('/users/assignees', requireAuth, async (req, res) => {
      ORDER BY name ASC`
   );
   res.json(result.rows);
+});
+
+app.get('/keywords', requireAuth, async (req, res) => {
+  const editableGroups = await getEditableKeywordGroups(req.user.email);
+  const result = await db.query(
+    `SELECT key, value
+     FROM config
+     WHERE key LIKE 'KEYWORDS_%'
+     ORDER BY key ASC`
+  );
+
+  const keywords = {};
+  for (const row of result.rows) keywords[row.key] = row.value || '';
+  res.json({ editableGroups, keywords });
+});
+
+app.post('/keywords/:group', requireAuth, async (req, res) => {
+  const group = String(req.params.group || '').trim().toUpperCase();
+  const action = String(req.body?.action || '').trim().toLowerCase();
+  const keyword = String(req.body?.keyword || '').trim();
+  if (!GROUPS.includes(group)) return res.status(400).json({ error: 'invalid group' });
+  if (!['add', 'remove'].includes(action)) return res.status(400).json({ error: 'invalid action' });
+  if (!keyword) return res.status(400).json({ error: 'keyword required' });
+
+  const editableGroups = await getEditableKeywordGroups(req.user.email);
+  if (!editableGroups.includes(group)) return res.status(403).json({ error: 'forbidden for this group' });
+
+  const key = `KEYWORDS_${group}`;
+  const currentRes = await db.query('SELECT value FROM config WHERE key = $1', [key]);
+  const current = parseKeywordList(currentRes.rows[0]?.value || '');
+  const keywordLc = keyword.toLowerCase();
+
+  let next = current;
+  if (action === 'add') {
+    if (!current.some((k) => k.toLowerCase() === keywordLc)) next = [...current, keyword];
+  } else {
+    next = current.filter((k) => k.toLowerCase() !== keywordLc);
+  }
+
+  await db.query(
+    'INSERT INTO config (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+    [key, next.join(',')]
+  );
+  res.json({ ok: true, key, value: next.join(','), editableGroups });
 });
 
 app.get('/tickets/:id', requireAuth, async (req, res) => {

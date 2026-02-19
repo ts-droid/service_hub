@@ -161,6 +161,7 @@
     let currentUserGroups = [];
     let assignableUsers = [];
     let isAdminUser = false;
+    let editableKeywordGroups = [];
     let currentClassification = { matchedByGroup: {} };
     let currentMessageForClassification = { subject: '', body: '' };
     let keywordConfigMap = {};
@@ -215,12 +216,10 @@
     };
 
     async function loadKeywordConfigMap() {
-      if (!isAdminUser) return;
-      const rows = await api('/admin/config');
-      if (!rows) return;
-      keywordConfigMap = rows
-        .filter(r => String(r.key || '').startsWith('KEYWORDS_'))
-        .reduce((acc, r) => ({ ...acc, [r.key]: r.value || '' }), {});
+      const data = await api('/keywords');
+      if (!data) return;
+      editableKeywordGroups = data.editableGroups || [];
+      keywordConfigMap = data.keywords || {};
     }
 
     function keywordMatches(content, keyword) {
@@ -246,6 +245,11 @@
       return String(value || '').split(',').map(s => s.trim()).filter(Boolean);
     }
 
+    function canEditGroupKeywords(group) {
+      const grp = String(group || '').toUpperCase();
+      return editableKeywordGroups.includes(grp);
+    }
+
     function getMatchedForGroup(group) {
       const fromBackend = currentClassification?.matchedByGroup?.[group] || [];
       if (fromBackend.length) return fromBackend;
@@ -263,7 +267,11 @@
         ? matched.map(k => `<span class="keyword-chip">${esc(k)}</span>`).join('')
         : '<span class="text-muted small">Inga matchade keywords för vald grupp.</span>';
 
-      const adminControls = isAdminUser
+      const canEdit = canEditGroupKeywords(grp);
+      const controlsLabel = canEdit
+        ? `<div class="text-muted small mt-1">Justera keywords för ${esc(grp)} direkt här</div>`
+        : `<div class="text-muted small mt-1">Endast användare i ${esc(grp)} eller Admin kan ändra keywords</div>`;
+      const adminControls = canEdit
         ? `<div class="d-flex gap-2 mt-2">
             <input id="mKeywordInput" class="form-control form-control-sm" placeholder="keyword">
             <button class="btn btn-sm btn-outline-primary" onclick="updateKeywordForCurrentGroup('add')">+</button>
@@ -274,29 +282,24 @@
       box.innerHTML = `
         <div class="small fw-bold text-muted mb-1">Klassificering (${esc(grp || '-')})</div>
         <div>${chips}</div>
+        ${controlsLabel}
         ${adminControls}
       `;
     }
 
     async function updateKeywordForCurrentGroup(action) {
-      if (!isAdminUser) return;
       const group = String(document.getElementById('mGroup').value || '').toUpperCase();
+      if (!canEditGroupKeywords(group)) return;
       const key = configKeyForGroup(group);
       const input = document.getElementById('mKeywordInput');
       const term = String(input?.value || '').trim();
       if (!term) return;
-
-      const current = parseKeywords(keywordConfigMap[key]);
-      const termLc = term.toLowerCase();
-      let next = current;
-      if (action === 'add') {
-        if (!current.some(k => k.toLowerCase() === termLc)) next = [...current, term];
-      } else {
-        next = current.filter(k => k.toLowerCase() !== termLc);
-      }
-
-      keywordConfigMap[key] = next.join(',');
-      await api('/admin/config', { method: 'POST', body: JSON.stringify({ key, value: keywordConfigMap[key] }) });
+      const res = await api(`/keywords/${encodeURIComponent(group)}`, {
+        method: 'POST',
+        body: JSON.stringify({ action, keyword: term })
+      });
+      if (!res) return;
+      keywordConfigMap[key] = res.value || '';
       if (input) input.value = '';
       renderClassificationPanel(group);
     }
@@ -483,6 +486,6 @@
       tModal.hide();
       refresh();
     }
-  </script>
+</script>
 </body>
 </html>
