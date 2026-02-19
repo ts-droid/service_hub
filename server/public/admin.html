@@ -3,23 +3,45 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background: #f6f7fb; font-family: 'Segoe UI', sans-serif; }
-    .card { border: none; border-radius: 12px; }
+    :root {
+      --brand-primary: #DF3314;
+      --brand-primary-dark: #95220D;
+      --ink: #000;
+      --muted: #666;
+      --bg: #f7f7f7;
+      --card: #fff;
+      --line: #E2E2E2;
+      --shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+    }
+    body { background: var(--bg); font-family: "Avenir Next", Avenir, "Open Sans", Helvetica, Arial, sans-serif; color: var(--ink); }
+    .top-nav { background: #000; border-bottom: 2px solid #111; }
+    .card { border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: var(--shadow); }
     .section-title { font-weight: 700; margin-bottom: 10px; }
-    .muted { color: #6c757d; font-size: 0.85rem; }
-    .user-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-    .user-meta { font-size: 0.85rem; color: #6c757d; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    .user-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .user-meta { font-size: 0.85rem; color: var(--muted); }
     .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 0.75rem; font-weight: 600; }
     .config-row { display: grid; grid-template-columns: 220px 1fr 120px; gap: 10px; align-items: center; }
+    .btn-primary { background: var(--brand-primary); border-color: var(--brand-primary); font-weight: 700; }
+    .btn-primary:hover { background: var(--brand-primary-dark); border-color: var(--brand-primary-dark); }
+    .btn-warning { background: var(--brand-primary); border-color: var(--brand-primary); color: #fff; font-weight: 800; }
+    .form-control, .form-select { border-color: var(--line); }
+    .form-control:focus, .form-select:focus {
+      border-color: #ef9d8d;
+      box-shadow: 0 0 0 0.2rem rgba(223, 51, 20, 0.15);
+    }
     @media (max-width: 992px) {
       .config-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-dark bg-dark p-3 shadow-sm">
+  <nav class="navbar navbar-dark top-nav p-3 shadow-sm">
     <div class="container d-flex justify-content-between">
       <span class="navbar-brand fw-bold">Vendora Support Hub</span>
       <div class="d-flex gap-2">

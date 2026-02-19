@@ -3,14 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background: #f6f7fb; font-family: 'Segoe UI', sans-serif; }
-    .ticket-card { border-left: 5px solid #0d6efd; cursor: pointer; transition: 0.2s; position: relative; border-radius: 8px; }
-    .ticket-card:hover { transform: translateX(5px); background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    .ticket-meta { font-size: 0.85rem; color: #6c757d; }
-    .history-container { max-height: 350px; overflow-y: auto; background: #fff; border-radius: 8px; padding: 15px; border: 1px solid #eee; }
-    .ai-box { background: #e7f5ff; border: 1px solid #a5d8ff; border-radius: 8px; padding: 15px; font-style: italic; }
+    :root {
+      --brand-primary: #DF3314;
+      --brand-primary-dark: #95220D;
+      --ink: #000;
+      --muted: #666;
+      --bg: #f7f7f7;
+      --card: #fff;
+      --line: #E2E2E2;
+      --shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+    }
+    body { background: var(--bg); font-family: "Avenir Next", Avenir, "Open Sans", Helvetica, Arial, sans-serif; color: var(--ink); }
+    .top-nav { background: #000; border-bottom: 2px solid #111; }
+    .navbar-brand { letter-spacing: 0.2px; }
+    .ticket-card { border-left: 5px solid var(--brand-primary); cursor: pointer; transition: 0.2s; position: relative; border-radius: 10px; background: var(--card); box-shadow: var(--shadow); }
+    .ticket-card:hover { transform: translateX(4px); background: #fff; }
+    .ticket-meta { font-size: 0.85rem; color: var(--muted); }
+    .history-container { max-height: 350px; overflow-y: auto; background: #fff; border-radius: 10px; padding: 15px; border: 1px solid var(--line); }
+    .ai-box { background: #fff7f5; border: 1px solid #f4c6bb; border-radius: 10px; padding: 15px; font-style: italic; color: #2f2f2f !important; }
     .locked-badge { font-size: 0.7rem; background: #ffec99; color: #862e12; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     .group-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
     .group-support { background: #e7f5ff; color: #1864ab; }
@@ -34,9 +49,9 @@
     .main-tabs .nav-item { flex: 1 1 0; }
     .main-tabs .nav-link {
       cursor: pointer;
-      color: #495057;
+      color: #333;
       font-weight: 700;
-      border: 1px solid #dfe3ee;
+      border: 1px solid var(--line);
       border-radius: 10px;
       padding: 10px 14px;
       background: #fff;
@@ -46,10 +61,10 @@
       gap: 10px;
     }
     .main-tabs .nav-link.active {
-      color: #0d6efd;
-      border-color: #0d6efd;
-      background: #edf4ff;
-      box-shadow: inset 0 0 0 1px rgba(13,110,253,0.1);
+      color: var(--brand-primary);
+      border-color: var(--brand-primary);
+      background: #fff3f0;
+      box-shadow: inset 0 0 0 1px rgba(223, 51, 20, 0.14);
     }
     .tab-count {
       min-width: 30px;
@@ -62,19 +77,27 @@
       color: #495057;
     }
     .main-tabs .nav-link.active .tab-count {
-      background: #0d6efd;
+      background: var(--brand-primary);
       color: #fff;
     }
 
-    .msg-bubble { margin-bottom: 15px; padding: 10px; border-radius: 8px; background: #f8f9fa; border: 1px solid #f1f1f1; }
-    .msg-header { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px; color: #0d6efd; }
-    .keyword-panel { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+    .msg-bubble { margin-bottom: 15px; padding: 10px; border-radius: 10px; background: #fafafa; border: 1px solid var(--line); }
+    .msg-header { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px; color: var(--brand-primary); }
+    .keyword-panel { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 12px; }
     .keyword-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #fff4e6; color: #d9480f; font-size: 0.75rem; font-weight: 700; margin-right: 6px; margin-bottom: 6px; }
     .keyword-hit { background: #fff3bf; padding: 0 2px; border-radius: 3px; }
+    .btn-primary { background: var(--brand-primary); border-color: var(--brand-primary); font-weight: 700; }
+    .btn-primary:hover { background: var(--brand-primary-dark); border-color: var(--brand-primary-dark); }
+    .btn-warning { background: var(--brand-primary); border-color: var(--brand-primary); color: #fff; font-weight: 800; }
+    .form-control, .form-select { border-color: var(--line); }
+    .form-control:focus, .form-select:focus {
+      border-color: #ef9d8d;
+      box-shadow: 0 0 0 0.2rem rgba(223, 51, 20, 0.15);
+    }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-dark bg-dark p-3 shadow-sm">
+  <nav class="navbar navbar-dark top-nav p-3 shadow-sm">
     <div class="container d-flex justify-content-between">
       <span class="navbar-brand fw-bold">Vendora Support Hub</span>
       <div id="topActions" class="d-flex gap-2"></div>
