@@ -68,6 +68,15 @@
             <div id="keywordsList" class="d-grid gap-2"></div>
           </div>
         </div>
+        <div class="card p-4 shadow-sm mt-4">
+          <div class="section-title">Signaturer (gruppmail)</div>
+          <label class="form-label fw-bold">Välj grupp</label>
+          <select id="signatureSelect" class="form-select mb-2"></select>
+          <textarea id="signatureEditor" class="form-control" rows="7" placeholder="Skriv signatur för vald grupp..."></textarea>
+          <div class="d-flex justify-content-end mt-2">
+            <button class="btn btn-outline-primary" onclick="saveSelectedSignature()">Spara signatur</button>
+          </div>
+        </div>
       </div>
 
       <div class="col-lg-4">
@@ -87,25 +96,13 @@
         </div>
 
         <div class="card p-4 shadow-sm">
-          <div class="section-title">AI & Signaturer</div>
-          <div class="row g-3">
-            <div class="col-md-5">
-              <label class="form-label fw-bold">Signatur (gruppmail)</label>
-              <select id="signatureSelect" class="form-select mb-2"></select>
-              <textarea id="signatureEditor" class="form-control" rows="8" placeholder="Skriv signatur för vald grupp..."></textarea>
-              <div class="d-flex justify-content-end mt-2">
-                <button class="btn btn-outline-primary" onclick="saveSelectedSignature()">Spara signatur</button>
-              </div>
-            </div>
-            <div class="col-md-7">
-              <label class="form-label fw-bold">AI Prompt</label>
-              <textarea id="aiPrompt" class="form-control" rows="5" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
-              <label class="form-label fw-bold mt-3">AI Språkregel</label>
-              <textarea id="aiLanguageRule" class="form-control" rows="4" placeholder="Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ..."></textarea>
-              <div class="d-flex justify-content-end mt-2">
-                <button class="btn btn-primary" onclick="saveAiSettings()">Spara AI-inställningar</button>
-              </div>
-            </div>
+          <div class="section-title">AI Prompt</div>
+          <label class="form-label fw-bold">Prompt</label>
+          <textarea id="aiPrompt" class="form-control" rows="5" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
+          <label class="form-label fw-bold mt-3">AI Språkregel</label>
+          <textarea id="aiLanguageRule" class="form-control" rows="4" placeholder="Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ..."></textarea>
+          <div class="d-flex justify-content-end mt-2">
+            <button class="btn btn-primary" onclick="saveAiSettings()">Spara AI-inställningar</button>
           </div>
         </div>
       </div>
