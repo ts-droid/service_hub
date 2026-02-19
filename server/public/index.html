@@ -123,11 +123,12 @@
                   <option value="SALES">SALES</option>
                 </select>
                 <span id="mCurrentGroupBadge" class="group-badge group-default">-</span>
+                <button class="btn btn-sm btn-primary" onclick="doMoveGroup()">Flytta</button>
               </div>
               <div class="d-flex gap-2 align-items-center">
                 <span class="small fw-bold text-muted">Tilldela:</span>
                 <select id="mAssignee" class="form-select form-select-sm w-auto"></select>
-                <button class="btn btn-sm btn-primary" onclick="doMove()">Spara & Flytta</button>
+                <button class="btn btn-sm btn-outline-primary" onclick="doAssign()">Tilldela</button>
               </div>
             </div>
             <div class="d-flex gap-2">
@@ -451,12 +452,20 @@
       refresh();
     }
 
-    async function doMove() {
+    async function doMoveGroup() {
       const targetGroup = document.getElementById('mGroup').value;
+      if (confirm(`Flytta till ${targetGroup}? Ärendet blir ej tilldelat.`)) {
+        await api(`/tickets/${activeId}/move`, { method: 'POST', body: JSON.stringify({ group: targetGroup }) });
+        tModal.hide();
+        refresh();
+      }
+    }
+
+    async function doAssign() {
       const assignee = document.getElementById('mAssignee').value;
-      const assignmentTxt = assignee ? ` och tilldela ${assignee}` : '';
-      if (confirm(`Flytta till ${targetGroup}${assignmentTxt}?`)) {
-        await api(`/tickets/${activeId}/move`, { method: 'POST', body: JSON.stringify({ group: targetGroup, owner_email: assignee || null }) });
+      const prompt = assignee ? `Tilldela ärendet till ${assignee}?` : 'Ta bort tilldelning från ärendet?';
+      if (confirm(prompt)) {
+        await api(`/tickets/${activeId}/assign`, { method: 'POST', body: JSON.stringify({ owner_email: assignee || null }) });
         tModal.hide();
         refresh();
       }

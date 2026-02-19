@@ -463,14 +463,24 @@ app.post('/tickets/:id/reply', requireAuth, async (req, res) => {
 app.post('/tickets/:id/move', requireAuth, async (req, res) => {
   const ticketId = req.params.id;
   const group = String(req.body?.group || '').trim().toUpperCase();
-  const ownerEmailRaw = String(req.body?.owner_email || '').trim().toLowerCase();
   if (!group) return res.status(400).json({ error: 'group required' });
+
+  await db.query(
+    'UPDATE tickets SET "group" = $1, owner_email = $2, status = $3, updated_at = $4 WHERE ticket_id = $5',
+    [group, null, 'Nytt', nowIso(), ticketId]
+  );
+  res.json({ ok: true });
+});
+
+app.post('/tickets/:id/assign', requireAuth, async (req, res) => {
+  const ticketId = req.params.id;
+  const ownerEmailRaw = String(req.body?.owner_email || '').trim().toLowerCase();
 
   let ownerEmail = null;
   let status = 'Nytt';
   if (ownerEmailRaw) {
     const ownerRes = await db.query(
-      'SELECT email, "group", active FROM users WHERE lower(email) = $1',
+      'SELECT email, active FROM users WHERE lower(email) = $1',
       [ownerEmailRaw]
     );
     const owner = ownerRes.rows[0];
@@ -480,8 +490,8 @@ app.post('/tickets/:id/move', requireAuth, async (req, res) => {
   }
 
   await db.query(
-    'UPDATE tickets SET "group" = $1, owner_email = $2, status = $3, updated_at = $4 WHERE ticket_id = $5',
-    [group, ownerEmail, status, nowIso(), ticketId]
+    'UPDATE tickets SET owner_email = $1, status = $2, updated_at = $3 WHERE ticket_id = $4',
+    [ownerEmail, status, nowIso(), ticketId]
   );
   res.json({ ok: true });
 });
