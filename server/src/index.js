@@ -270,6 +270,7 @@ app.post('/users/register', requireAuth, async (req, res) => {
 
 app.get('/tickets', requireAuth, async (req, res) => {
   const { group, status } = req.query || {};
+  const q = String(req.query?.q || '').trim();
   const email = req.user.email;
 
   const users = await db.query('SELECT "group" FROM users WHERE email = $1', [email]);
@@ -302,6 +303,14 @@ app.get('/tickets', requireAuth, async (req, res) => {
   } else {
     where.push('UPPER("group") = $' + (params.length + 1));
     params.push(String(group).toUpperCase());
+  }
+
+  if (q) {
+    const like = `%${q}%`;
+    where.push(
+      `(ticket_id ILIKE $${params.length + 1} OR subject ILIKE $${params.length + 2} OR sender_email ILIKE $${params.length + 3})`
+    );
+    params.push(like, like, like);
   }
 
   const sql = `SELECT ticket_id, subject, status, sender_email, "group", owner_email, priority, created_at

@@ -117,6 +117,10 @@
         <label class="small fw-bold text-muted ms-1">Filter Grupp:</label>
         <select id="filterGroup" class="form-select shadow-sm" onchange="refresh()"></select>
       </div>
+      <div class="col-md-3" id="lostSearchWrap" style="display:none;">
+        <label class="small fw-bold text-muted ms-1">Sök i lösta:</label>
+        <input id="lostSearch" class="form-control shadow-sm" placeholder="ID, ämne eller avsändare">
+      </div>
       <div class="col-md-2 mt-auto">
         <button class="btn btn-primary w-100 shadow-sm" onclick="refresh()">Uppdatera</button>
       </div>
@@ -387,7 +391,14 @@
       document.querySelectorAll('#mainTabs .nav-link').forEach(link => link.classList.remove('active'));
       el.classList.add('active');
       currentStatusTab = status;
+      toggleLostSearch();
       refresh();
+    }
+
+    function toggleLostSearch() {
+      const wrap = document.getElementById('lostSearchWrap');
+      if (!wrap) return;
+      wrap.style.display = currentStatusTab === 'Löst' ? '' : 'none';
     }
 
     async function loadFilters() {
@@ -417,6 +428,10 @@
 
     async function refresh() {
       const filters = { group: document.getElementById('filterGroup').value, status: currentStatusTab };
+      if (currentStatusTab === 'Löst') {
+        const q = document.getElementById('lostSearch').value.trim();
+        if (q) filters.q = q;
+      }
       const qs = new URLSearchParams(filters).toString();
       const [tickets] = await Promise.all([
         api(`/tickets?${qs}`),
@@ -633,6 +648,10 @@
         const raw = el.textContent || '';
         el.innerHTML = highlightKeywords(raw, getMatchedForGroup(grp));
       });
+    });
+
+    document.getElementById('lostSearch').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') refresh();
     });
 
     async function doBlock() {
