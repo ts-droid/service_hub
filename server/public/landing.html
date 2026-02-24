@@ -83,31 +83,37 @@
 </head>
 <body>
   <div class="card">
+    <div class="d-flex justify-content-end mb-3">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Language switch">
+        <button id="langSvBtn" type="button" class="btn btn-outline-secondary" onclick="setLanguage('sv')">🇸🇪 Svenska</button>
+        <button id="langEnBtn" type="button" class="btn btn-outline-secondary" onclick="setLanguage('en')">🇬🇧 English</button>
+      </div>
+    </div>
     <div class="text-center"><span class="brand-chip">Vendora</span></div>
-    <h2 class="mb-3 fw-bold text-center">Vendora Support Hub</h2>
-    <p class="text-muted text-center mb-4">Anslut ditt konto och välj de avdelningar du arbetar med.</p>
+    <h2 class="mb-3 fw-bold text-center" data-i18n="title">Vendora Support Hub</h2>
+    <p class="text-muted text-center mb-4" data-i18n="subtitle">Anslut ditt konto och välj de avdelningar du arbetar med.</p>
 
     <div class="mb-3">
-      <label class="small fw-bold field-label mb-1">E-post (Google-inloggning)</label>
-      <input type="text" id="userEmail" class="form-control" placeholder="Laddar..." readonly>
+      <label class="small fw-bold field-label mb-1" data-i18n="email_label">E-post (Google-inloggning)</label>
+      <input type="text" id="userEmail" class="form-control" data-i18n-placeholder="email_placeholder" placeholder="Laddar..." readonly>
     </div>
 
     <div class="mb-3">
-      <label class="small fw-bold field-label mb-1">Visningsnamn</label>
-      <input type="text" id="userName" class="form-control" placeholder="Förnamn Efternamn">
+      <label class="small fw-bold field-label mb-1" data-i18n="display_name_label">Visningsnamn</label>
+      <input type="text" id="userName" class="form-control" data-i18n-placeholder="display_name_placeholder" placeholder="Förnamn Efternamn">
     </div>
 
     <div class="mb-4">
-      <label class="small fw-bold field-label mb-2">Dina grupper</label>
+      <label class="small fw-bold field-label mb-2" data-i18n="groups_label">Dina grupper</label>
       <div class="group-select">
         <div class="row">
           <div class="col-6">
-            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="SUPPORT" id="g1" checked><label class="form-check-label" for="g1">Support</label></div>
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="SUPPORT" id="g1" checked><label class="form-check-label" for="g1" data-i18n="group_support">Support</label></div>
             <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="RMA" id="g2"><label class="form-check-label" for="g2">RMA</label></div>
-            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="LOGISTICS" id="g3"><label class="form-check-label" for="g3">Logistics</label></div>
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="LOGISTICS" id="g3"><label class="form-check-label" for="g3" data-i18n="group_logistics">Logistics</label></div>
           </div>
           <div class="col-6">
-            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="SALES" id="g4"><label class="form-check-label" for="g4">Sales</label></div>
+            <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="SALES" id="g4"><label class="form-check-label" for="g4" data-i18n="group_sales">Sales</label></div>
             <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="MARKETING" id="g5"><label class="form-check-label" for="g5">Marketing</label></div>
             <div class="form-check"><input class="form-check-input grp-check" type="checkbox" value="FINANCE" id="g6"><label class="form-check-label" for="g6">Finance</label></div>
           </div>
@@ -115,10 +121,66 @@
       </div>
     </div>
 
-    <button onclick="register()" id="regBtn" class="btn btn-primary w-100 mb-3 shadow">Koppla konto</button>
+    <button onclick="register()" id="regBtn" class="btn btn-primary w-100 mb-3 shadow" data-i18n="connect_btn">Koppla konto</button>
   </div>
 
   <script>
+    const I18N = {
+      sv: {
+        title: 'Vendora Support Hub',
+        subtitle: 'Anslut ditt konto och välj de avdelningar du arbetar med.',
+        email_label: 'E-post (Google-inloggning)',
+        email_placeholder: 'Laddar...',
+        display_name_label: 'Visningsnamn',
+        display_name_placeholder: 'Förnamn Efternamn',
+        groups_label: 'Dina grupper',
+        group_support: 'Support',
+        group_logistics: 'Logistics',
+        group_sales: 'Sales',
+        connect_btn: 'Koppla konto',
+        connecting_btn: 'Ansluter...',
+        err_name: 'Ange ditt namn',
+        err_groups: 'Välj minst en grupp',
+        request_failed: 'Request failed'
+      },
+      en: {
+        title: 'Vendora Support Hub',
+        subtitle: 'Connect your account and choose the departments you work with.',
+        email_label: 'Email (Google sign-in)',
+        email_placeholder: 'Loading...',
+        display_name_label: 'Display name',
+        display_name_placeholder: 'First name Last name',
+        groups_label: 'Your groups',
+        group_support: 'Support',
+        group_logistics: 'Logistics',
+        group_sales: 'Sales',
+        connect_btn: 'Connect account',
+        connecting_btn: 'Connecting...',
+        err_name: 'Enter your name',
+        err_groups: 'Choose at least one group',
+        request_failed: 'Request failed'
+      }
+    };
+    let currentLang = localStorage.getItem('supporthub_lang') || 'sv';
+    const tr = (key) => (I18N[currentLang] && I18N[currentLang][key]) || I18N.sv[key] || key;
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        el.textContent = tr(el.getAttribute('data-i18n'));
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        el.setAttribute('placeholder', tr(el.getAttribute('data-i18n-placeholder')));
+      });
+      document.getElementById('langSvBtn').classList.toggle('btn-dark', currentLang === 'sv');
+      document.getElementById('langSvBtn').classList.toggle('btn-outline-secondary', currentLang !== 'sv');
+      document.getElementById('langEnBtn').classList.toggle('btn-dark', currentLang === 'en');
+      document.getElementById('langEnBtn').classList.toggle('btn-outline-secondary', currentLang !== 'en');
+    }
+    function setLanguage(lang) {
+      currentLang = lang === 'en' ? 'en' : 'sv';
+      localStorage.setItem('supporthub_lang', currentLang);
+      applyI18n();
+    }
+
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
       if (res.status === 401) {
@@ -127,7 +189,7 @@
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Request failed');
+        throw new Error(err.error || tr('request_failed'));
       }
       return res.json();
     }
@@ -136,11 +198,11 @@
       const name = document.getElementById('userName').value.trim();
       const selectedGroups = Array.from(document.querySelectorAll('.grp-check:checked')).map(cb => cb.value).join(',');
 
-      if (!name) return alert("Ange ditt namn");
-      if (!selectedGroups) return alert("Välj minst en grupp");
+      if (!name) return alert(tr('err_name'));
+      if (!selectedGroups) return alert(tr('err_groups'));
 
       const btn = document.getElementById('regBtn');
-      btn.disabled = true; btn.innerHTML = "Ansluter...";
+      btn.disabled = true; btn.textContent = tr('connecting_btn');
 
       await api('/users/register', { method: 'POST', body: JSON.stringify({ name, group: selectedGroups }) });
       window.location.href = '/';
@@ -153,6 +215,7 @@
       if (me.name) document.getElementById('userName').value = me.name;
     }
 
+    applyI18n();
     init();
   </script>
 </body>

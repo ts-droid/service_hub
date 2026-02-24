@@ -99,33 +99,39 @@
 <body>
   <nav class="navbar navbar-dark top-nav p-3 shadow-sm">
     <div class="container d-flex justify-content-between">
-      <span class="navbar-brand fw-bold">Vendora Support Hub</span>
-      <div id="topActions" class="d-flex gap-2"></div>
+      <span class="navbar-brand fw-bold" data-i18n="brand_title">Vendora Support Hub</span>
+      <div class="d-flex gap-2 align-items-center">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Language switch">
+          <button id="langSvBtn" type="button" class="btn btn-outline-light" onclick="setLanguage('sv')">🇸🇪 Svenska</button>
+          <button id="langEnBtn" type="button" class="btn btn-outline-light" onclick="setLanguage('en')">🇬🇧 English</button>
+        </div>
+        <div id="topActions" class="d-flex gap-2"></div>
+      </div>
     </div>
   </nav>
 
   <div class="container mt-4">
     <ul class="nav nav-tabs mb-4 border-0 shadow-sm bg-white rounded main-tabs" id="mainTabs">
-      <li class="nav-item"><a class="nav-link active" data-status="Nytt" onclick="setTab(this, 'Nytt')"><span>Nytt</span><span id="countNytt" class="tab-count">0</span></a></li>
-      <li class="nav-item"><a class="nav-link" data-status="Mina Pågående" onclick="setTab(this, 'Mina Pågående')"><span>Mina Pågående</span><span id="countMinaPagaende" class="tab-count">0</span></a></li>
-      <li class="nav-item"><a class="nav-link" data-status="Andras Pågående" onclick="setTab(this, 'Andras Pågående')"><span>Andras Pågående</span><span id="countAndrasPagaende" class="tab-count">0</span></a></li>
-      <li class="nav-item"><a class="nav-link" data-status="Löst" onclick="setTab(this, 'Löst')"><span>Löst</span><span id="countLost" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link active" data-status="Nytt" onclick="setTab(this, 'Nytt')"><span data-i18n="tab_new">Nytt</span><span id="countNytt" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link" data-status="Mina Pågående" onclick="setTab(this, 'Mina Pågående')"><span data-i18n="tab_mine">Mina Pågående</span><span id="countMinaPagaende" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link" data-status="Andras Pågående" onclick="setTab(this, 'Andras Pågående')"><span data-i18n="tab_others">Andras Pågående</span><span id="countAndrasPagaende" class="tab-count">0</span></a></li>
+      <li class="nav-item"><a class="nav-link" data-status="Löst" onclick="setTab(this, 'Löst')"><span data-i18n="tab_resolved">Löst</span><span id="countLost" class="tab-count">0</span></a></li>
     </ul>
 
     <div class="row g-2 mb-3 align-items-center">
       <div class="col-md-4">
-        <label class="small fw-bold text-muted ms-1">Filter Grupp:</label>
+        <label class="small fw-bold text-muted ms-1" data-i18n="filter_group">Filter Grupp:</label>
         <select id="filterGroup" class="form-select shadow-sm" onchange="refresh()"></select>
       </div>
       <div class="col-md-3" id="lostSearchWrap" style="display:none;">
-        <label class="small fw-bold text-muted ms-1">Sök i lösta:</label>
-        <input id="lostSearch" class="form-control shadow-sm" placeholder="ID, ämne eller avsändare">
+        <label class="small fw-bold text-muted ms-1" data-i18n="search_resolved">Sök i lösta:</label>
+        <input id="lostSearch" class="form-control shadow-sm" data-i18n-placeholder="search_resolved_ph" placeholder="ID, ämne eller avsändare">
       </div>
       <div class="col-md-2 mt-auto">
-        <button class="btn btn-primary w-100 shadow-sm" onclick="refresh()">Uppdatera</button>
+        <button class="btn btn-primary w-100 shadow-sm" onclick="refresh()" data-i18n="refresh_btn">Uppdatera</button>
       </div>
       <div class="col-md-3 mt-auto">
-        <button class="btn btn-outline-primary w-100 shadow-sm" onclick="openManualTicketModal()">Nytt manuellt ärende</button>
+        <button class="btn btn-outline-primary w-100 shadow-sm" onclick="openManualTicketModal()" data-i18n="new_manual_ticket">Nytt manuellt ärende</button>
       </div>
     </div>
 
@@ -136,16 +142,16 @@
     <div class="modal-dialog">
       <div class="modal-content border-0 shadow-lg">
         <div class="modal-header bg-light border-0">
-          <h5 class="modal-title fw-bold">Skapa manuellt ärende</h5>
+          <h5 class="modal-title fw-bold" data-i18n="manual_title">Skapa manuellt ärende</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <div class="mb-2">
-            <label class="small fw-bold text-muted">Ämne</label>
-            <input id="manualSubject" class="form-control" placeholder="Kort ämne">
+            <label class="small fw-bold text-muted" data-i18n="manual_subject">Ämne</label>
+            <input id="manualSubject" class="form-control" data-i18n-placeholder="manual_subject_ph" placeholder="Kort ämne">
           </div>
           <div class="mb-2">
-            <label class="small fw-bold text-muted">Grupp</label>
+            <label class="small fw-bold text-muted" data-i18n="manual_group">Grupp</label>
             <select id="manualGroup" class="form-select">
               <option value="SUPPORT">SUPPORT</option>
               <option value="RMA">RMA</option>
@@ -156,24 +162,24 @@
             </select>
           </div>
           <div class="mb-2">
-            <label class="small fw-bold text-muted">Namn</label>
-            <input id="manualContactName" class="form-control" placeholder="Ex: Anna Andersson">
+            <label class="small fw-bold text-muted" data-i18n="manual_name">Namn</label>
+            <input id="manualContactName" class="form-control" data-i18n-placeholder="manual_name_ph" placeholder="Ex: Anna Andersson">
           </div>
           <div class="mb-2">
-            <label class="small fw-bold text-muted">Telefonnummer</label>
-            <input id="manualContactPhone" class="form-control" placeholder="Ex: +46 70 123 45 67">
+            <label class="small fw-bold text-muted" data-i18n="manual_phone">Telefonnummer</label>
+            <input id="manualContactPhone" class="form-control" data-i18n-placeholder="manual_phone_ph" placeholder="Ex: +46 70 123 45 67">
           </div>
           <div class="mb-2">
-            <label class="small fw-bold text-muted">Mail</label>
-            <input id="manualContactEmail" class="form-control" placeholder="Ex: anna@kund.se">
+            <label class="small fw-bold text-muted" data-i18n="manual_email">Mail</label>
+            <input id="manualContactEmail" class="form-control" data-i18n-placeholder="manual_email_ph" placeholder="Ex: anna@kund.se">
           </div>
           <div>
-            <label class="small fw-bold text-muted">Beskrivning</label>
-            <textarea id="manualBody" class="form-control" rows="5" placeholder="Vad gäller ärendet?"></textarea>
+            <label class="small fw-bold text-muted" data-i18n="manual_description">Beskrivning</label>
+            <textarea id="manualBody" class="form-control" rows="5" data-i18n-placeholder="manual_description_ph" placeholder="Vad gäller ärendet?"></textarea>
           </div>
         </div>
         <div class="modal-footer bg-light border-0">
-          <button class="btn btn-primary w-100 fw-bold" onclick="createManualTicket()">Skapa ärende</button>
+          <button class="btn btn-primary w-100 fw-bold" onclick="createManualTicket()" data-i18n="manual_create_btn">Skapa ärende</button>
         </div>
       </div>
     </div>
@@ -190,7 +196,7 @@
           <div class="d-flex justify-content-between align-items-start mb-4 p-2 bg-light rounded">
             <div class="d-flex flex-column gap-2">
               <div class="d-flex gap-2 align-items-center">
-                <span class="small fw-bold text-muted">Flytta till:</span>
+                <span class="small fw-bold text-muted" data-i18n="ticket_move_to">Flytta till:</span>
                 <select id="mGroup" class="form-select form-select-sm w-auto">
                   <option value="SUPPORT">SUPPORT</option>
                   <option value="RMA">RMA</option>
@@ -200,33 +206,33 @@
                   <option value="SALES">SALES</option>
                 </select>
                 <span id="mCurrentGroupBadge" class="group-badge group-default">-</span>
-                <button class="btn btn-sm btn-primary" onclick="doMoveGroup()">Flytta</button>
+                <button class="btn btn-sm btn-primary" onclick="doMoveGroup()" data-i18n="ticket_move_btn">Flytta</button>
               </div>
               <div class="d-flex gap-2 align-items-center">
-                <span class="small fw-bold text-muted">Tilldela:</span>
+                <span class="small fw-bold text-muted" data-i18n="ticket_assign_to">Tilldela:</span>
                 <select id="mAssignee" class="form-select form-select-sm w-auto"></select>
-                <button class="btn btn-sm btn-outline-primary" onclick="doAssign()">Tilldela</button>
+                <button class="btn btn-sm btn-outline-primary" onclick="doAssign()" data-i18n="ticket_assign_btn">Tilldela</button>
               </div>
             </div>
             <div class="d-flex gap-2">
-              <button class="btn btn-outline-danger btn-sm" onclick="doBlock()">Blockera</button>
-              <button class="btn btn-outline-success btn-sm" onclick="doDelete()">Markera Löst</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="doBlock()" data-i18n="ticket_block_btn">Blockera</button>
+              <button class="btn btn-outline-success btn-sm" onclick="doDelete()" data-i18n="ticket_mark_resolved_btn">Markera Löst</button>
             </div>
           </div>
 
           <div id="mHistory" class="history-container mb-3 shadow-sm"></div>
           <div id="mClassification" class="keyword-panel"></div>
 
-          <label class="small fw-bold mb-1 text-primary">Svar (OpenAI-förslag fylls i här):</label>
-          <textarea id="mReply" class="form-control shadow-sm mb-2" rows="8" placeholder="OpenAI analyserar och fyller i svar..."></textarea>
+          <label class="small fw-bold mb-1 text-primary" data-i18n="reply_label">Svar (OpenAI-förslag fylls i här):</label>
+          <textarea id="mReply" class="form-control shadow-sm mb-2" rows="8" data-i18n-placeholder="reply_placeholder" placeholder="OpenAI analyserar och fyller i svar..."></textarea>
           <div class="mb-2">
-            <label class="small fw-bold text-muted mb-1">Bifoga filer</label>
+            <label class="small fw-bold text-muted mb-1" data-i18n="attachments_label">Bifoga filer</label>
             <input id="mAttachments" type="file" class="form-control" multiple onchange="renderAttachmentList()">
             <div id="mAttachmentList" class="small text-muted mt-1"></div>
           </div>
         </div>
         <div class="modal-footer bg-light border-0">
-          <button class="btn btn-success w-100 fw-bold shadow-sm p-3" onclick="doReply()">SKICKA SVAR</button>
+          <button class="btn btn-success w-100 fw-bold shadow-sm p-3" onclick="doReply()" data-i18n="send_reply_btn">SKICKA SVAR</button>
         </div>
       </div>
     </div>
@@ -234,6 +240,145 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const I18N = {
+      sv: {
+        brand_title: 'Vendora Support Hub',
+        tab_new: 'Nytt',
+        tab_mine: 'Mina Pågående',
+        tab_others: 'Andras Pågående',
+        tab_resolved: 'Löst',
+        filter_group: 'Filter Grupp:',
+        search_resolved: 'Sök i lösta:',
+        search_resolved_ph: 'ID, ämne eller avsändare',
+        refresh_btn: 'Uppdatera',
+        manual_title: 'Skapa manuellt ärende',
+        manual_subject: 'Ämne',
+        manual_subject_ph: 'Kort ämne',
+        manual_group: 'Grupp',
+        manual_name: 'Namn',
+        manual_name_ph: 'Ex: Anna Andersson',
+        manual_phone: 'Telefonnummer',
+        manual_phone_ph: 'Ex: +46 70 123 45 67',
+        manual_email: 'Mail',
+        manual_email_ph: 'Ex: anna@kund.se',
+        manual_description: 'Beskrivning',
+        manual_description_ph: 'Vad gäller ärendet?',
+        manual_create_btn: 'Skapa ärende',
+        ticket_move_to: 'Flytta till:',
+        ticket_move_btn: 'Flytta',
+        ticket_assign_to: 'Tilldela:',
+        ticket_assign_btn: 'Tilldela',
+        ticket_block_btn: 'Blockera',
+        ticket_mark_resolved_btn: 'Markera Löst',
+        reply_label: 'Svar (OpenAI-förslag fylls i här):',
+        reply_placeholder: 'OpenAI analyserar och fyller i svar...',
+        attachments_label: 'Bifoga filer',
+        send_reply_btn: 'SKICKA SVAR',
+        admin: 'Admin',
+        logout: 'Logga ut',
+        loading_tickets: 'Laddar ärenden...',
+        empty_tickets: 'Inga ärenden här just nu.',
+        new_manual_ticket: 'Nytt manuellt ärende',
+        refresh: 'Uppdatera',
+        enter_subject: 'Ange ämne.',
+        enter_description: 'Ange beskrivning.',
+        enter_contact: 'Ange minst en kontaktuppgift (namn, telefon eller mail).',
+        ai_loading: 'OpenAI analyserar och fyller i svar...',
+        ai_missing: 'AI inte konfigurerad: OPENAI_API_KEY saknas.',
+        ai_unreadable: 'Kunde inte läsa innehållet för AI-förslag.',
+        write_reply: 'Vänligen skriv ett svar.',
+        max_attachments: 'Max 5 bilagor.',
+        ticket_created: 'Ärende skapat: {id}',
+        file_read_error: 'Kunde inte läsa fil: {name}',
+        reply_saved: 'Svar registrerat.',
+        move_confirm: 'Flytta till {group}? Ärendet blir ej tilldelat.',
+        assign_confirm: 'Tilldela ärendet till {email}?',
+        unassign_confirm: 'Ta bort tilldelning från ärendet?',
+        block_confirm: 'Blockera {email}?'
+      },
+      en: {
+        brand_title: 'Vendora Support Hub',
+        tab_new: 'New',
+        tab_mine: 'My Active',
+        tab_others: 'Others Active',
+        tab_resolved: 'Resolved',
+        filter_group: 'Group Filter:',
+        search_resolved: 'Search resolved:',
+        search_resolved_ph: 'ID, subject or sender',
+        refresh_btn: 'Refresh',
+        manual_title: 'Create manual ticket',
+        manual_subject: 'Subject',
+        manual_subject_ph: 'Short subject',
+        manual_group: 'Group',
+        manual_name: 'Name',
+        manual_name_ph: 'Example: Anna Andersson',
+        manual_phone: 'Phone number',
+        manual_phone_ph: 'Example: +46 70 123 45 67',
+        manual_email: 'Email',
+        manual_email_ph: 'Example: anna@customer.com',
+        manual_description: 'Description',
+        manual_description_ph: 'What is the ticket about?',
+        manual_create_btn: 'Create ticket',
+        ticket_move_to: 'Move to:',
+        ticket_move_btn: 'Move',
+        ticket_assign_to: 'Assign:',
+        ticket_assign_btn: 'Assign',
+        ticket_block_btn: 'Block',
+        ticket_mark_resolved_btn: 'Mark resolved',
+        reply_label: 'Reply (OpenAI draft is filled in here):',
+        reply_placeholder: 'OpenAI is analyzing and filling a draft...',
+        attachments_label: 'Attach files',
+        send_reply_btn: 'SEND REPLY',
+        admin: 'Admin',
+        logout: 'Log out',
+        loading_tickets: 'Loading tickets...',
+        empty_tickets: 'No tickets right now.',
+        new_manual_ticket: 'New manual ticket',
+        refresh: 'Refresh',
+        enter_subject: 'Enter subject.',
+        enter_description: 'Enter description.',
+        enter_contact: 'Enter at least one contact field (name, phone, or email).',
+        ai_loading: 'OpenAI is analyzing and filling a draft...',
+        ai_missing: 'AI is not configured: OPENAI_API_KEY is missing.',
+        ai_unreadable: 'Could not read message content for AI draft.',
+        write_reply: 'Please write a reply.',
+        max_attachments: 'Max 5 attachments.',
+        ticket_created: 'Ticket created: {id}',
+        file_read_error: 'Could not read file: {name}',
+        reply_saved: 'Reply registered.',
+        move_confirm: 'Move to {group}? Ticket will be unassigned.',
+        assign_confirm: 'Assign ticket to {email}?',
+        unassign_confirm: 'Remove assignment from this ticket?',
+        block_confirm: 'Block {email}?'
+      }
+    };
+    let currentLang = localStorage.getItem('supporthub_lang') || 'sv';
+    const tr = (key, vars = {}) => {
+      let s = (I18N[currentLang] && I18N[currentLang][key]) || I18N.sv[key] || key;
+      Object.keys(vars).forEach((k) => { s = s.replace(`{${k}}`, vars[k]); });
+      return s;
+    };
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        el.textContent = tr(el.getAttribute('data-i18n'));
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        el.setAttribute('placeholder', tr(el.getAttribute('data-i18n-placeholder')));
+      });
+      document.getElementById('ticketContainer').innerText = tr('loading_tickets');
+      document.getElementById('langSvBtn').classList.toggle('btn-light', currentLang === 'sv');
+      document.getElementById('langSvBtn').classList.toggle('btn-outline-light', currentLang !== 'sv');
+      document.getElementById('langEnBtn').classList.toggle('btn-light', currentLang === 'en');
+      document.getElementById('langEnBtn').classList.toggle('btn-outline-light', currentLang !== 'en');
+    }
+    function setLanguage(lang) {
+      currentLang = lang === 'en' ? 'en' : 'sv';
+      localStorage.setItem('supporthub_lang', currentLang);
+      renderTopActions();
+      applyI18n();
+      refresh();
+    }
+
     const esc = (s) => String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     let activeId = null;
     let currentSenderEmail = "";
@@ -252,7 +397,7 @@
       if (!v) return "";
       const d = new Date(v);
       if (Number.isNaN(d.getTime())) return "";
-      return d.toLocaleString('sv-SE');
+      return d.toLocaleString(currentLang === 'en' ? 'en-GB' : 'sv-SE');
     };
     const groupClass = (group) => {
       const g = String(group || '').toUpperCase();
@@ -279,18 +424,23 @@
       return res.json();
     }
 
+    function renderTopActions() {
+      const actions = [];
+      if (isAdminUser) {
+        actions.push(`<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">${esc(tr('admin'))}</a>`);
+      }
+      actions.push(`<a href="/auth/logout" class="btn btn-outline-light btn-sm fw-bold shadow-sm">${esc(tr('logout'))}</a>`);
+      document.getElementById('topActions').innerHTML = actions.join('');
+    }
+
     window.onload = async () => {
       const me = await api('/me');
       if (!me) return;
       geminiConfigured = !!me.geminiConfigured;
       isAdminUser = !!me.isAdmin;
       currentUserGroups = String(me.group || '').split(',').map(s => s.trim()).filter(Boolean);
-      const actions = [];
-      if (me.isAdmin) {
-        actions.push(`<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">Admin</a>`);
-      }
-      actions.push(`<a href="/auth/logout" class="btn btn-outline-light btn-sm fw-bold shadow-sm">Logga ut</a>`);
-      document.getElementById('topActions').innerHTML = actions.join('');
+      renderTopActions();
+      applyI18n();
       syncManualGroupOptions();
       loadFilters();
     };
@@ -441,7 +591,7 @@
 
       const container = document.getElementById('ticketContainer');
       if (!tickets.length) {
-        container.innerHTML = '<div class="text-center p-5 text-muted"><h4>🎉</h4>Inga ärenden här just nu.</div>';
+        container.innerHTML = `<div class="text-center p-5 text-muted"><h4>🎉</h4>${esc(tr('empty_tickets'))}</div>`;
         return;
       }
       container.innerHTML = tickets.map(t => `
@@ -494,9 +644,9 @@
       const contactEmail = document.getElementById('manualContactEmail').value.trim();
       const body = document.getElementById('manualBody').value.trim();
 
-      if (!subject) return alert('Ange ämne.');
-      if (!body) return alert('Ange beskrivning.');
-      if (!contactName && !contactPhone && !contactEmail) return alert('Ange minst en kontaktuppgift (namn, telefon eller mail).');
+      if (!subject) return alert(tr('enter_subject'));
+      if (!body) return alert(tr('enter_description'));
+      if (!contactName && !contactPhone && !contactEmail) return alert(tr('enter_contact'));
 
       const created = await api('/tickets/manual', {
         method: 'POST',
@@ -505,7 +655,7 @@
       if (!created) return;
       manualModal.hide();
       await refresh();
-      alert(`Ärende skapat: ${created.ticket_id}`);
+      alert(tr('ticket_created', { id: created.ticket_id }));
     }
 
     async function loadAssignableUsers() {
@@ -525,7 +675,7 @@
       document.getElementById('mSubject').innerText = subject;
       document.getElementById('mHistory').innerHTML = '<div class="p-3 text-center text-muted">Laddar historik...</div>';
       document.getElementById('mReply').value = "";
-      document.getElementById('mReply').placeholder = "OpenAI analyserar och fyller i svar...";
+      document.getElementById('mReply').placeholder = tr('ai_loading');
       document.getElementById('mAttachments').value = "";
       document.getElementById('mAttachmentList').innerHTML = "";
       document.getElementById('mClassification').innerHTML = '<span class="text-muted small">Analyserar klassificering...</span>';
@@ -557,7 +707,7 @@
         const lastMsgText = res.messages[res.messages.length - 1].body;
         if (lastMsgText && lastMsgText !== "Ingen text tillgänglig.") {
           if (!geminiConfigured) {
-            document.getElementById('mReply').placeholder = "AI inte konfigurerad: OPENAI_API_KEY saknas.";
+            document.getElementById('mReply').placeholder = tr('ai_missing');
           } else {
             try {
               const ai = await api('/ai/gemini', { method: 'POST', body: JSON.stringify({ text: lastMsgText }) });
@@ -571,7 +721,7 @@
             }
           }
         } else {
-          document.getElementById('mReply').placeholder = "Kunde inte läsa innehållet för AI-förslag.";
+          document.getElementById('mReply').placeholder = tr('ai_unreadable');
         }
       }
     }
@@ -600,26 +750,26 @@
             dataBase64: base64
           });
         };
-        reader.onerror = () => reject(new Error(`Kunde inte läsa fil: ${file.name}`));
+        reader.onerror = () => reject(new Error(tr('file_read_error', { name: file.name })));
         reader.readAsDataURL(file);
       });
     }
 
     async function doReply() {
       const reply = document.getElementById('mReply').value;
-      if (!reply) return alert("Vänligen skriv ett svar.");
+      if (!reply) return alert(tr('write_reply'));
       const files = Array.from(document.getElementById('mAttachments').files || []);
-      if (files.length > 5) return alert('Max 5 bilagor.');
+      if (files.length > 5) return alert(tr('max_attachments'));
       const attachments = await Promise.all(files.map(fileToBase64));
       await api(`/tickets/${activeId}/reply`, { method: 'POST', body: JSON.stringify({ text: reply, attachments }) });
-      alert('Svar registrerat.');
+      alert(tr('reply_saved'));
       tModal.hide();
       refresh();
     }
 
     async function doMoveGroup() {
       const targetGroup = document.getElementById('mGroup').value;
-      if (confirm(`Flytta till ${targetGroup}? Ärendet blir ej tilldelat.`)) {
+      if (confirm(tr('move_confirm', { group: targetGroup }))) {
         await api(`/tickets/${activeId}/move`, { method: 'POST', body: JSON.stringify({ group: targetGroup }) });
         tModal.hide();
         refresh();
@@ -628,7 +778,7 @@
 
     async function doAssign() {
       const assignee = document.getElementById('mAssignee').value;
-      const prompt = assignee ? `Tilldela ärendet till ${assignee}?` : 'Ta bort tilldelning från ärendet?';
+      const prompt = assignee ? tr('assign_confirm', { email: assignee }) : tr('unassign_confirm');
       if (confirm(prompt)) {
         await api(`/tickets/${activeId}/assign`, { method: 'POST', body: JSON.stringify({ owner_email: assignee || null }) });
         tModal.hide();
@@ -655,7 +805,7 @@
     });
 
     async function doBlock() {
-      if (confirm(`Blockera ${currentSenderEmail}?`)) {
+      if (confirm(tr('block_confirm', { email: currentSenderEmail }))) {
         await api(`/tickets/${activeId}/block`, { method: 'POST', body: JSON.stringify({ email: currentSenderEmail }) });
         tModal.hide();
         refresh();

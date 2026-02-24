@@ -43,10 +43,13 @@
 <body>
   <nav class="navbar navbar-dark top-nav p-3 shadow-sm">
     <div class="container d-flex justify-content-between">
-      <span class="navbar-brand fw-bold">Vendora Support Hub</span>
-      <div class="d-flex gap-2">
-        <a class="btn btn-outline-light btn-sm" href="/">Tillbaka</a>
-        <a class="btn btn-outline-light btn-sm" href="/auth/logout">Logga ut</a>
+      <span class="navbar-brand fw-bold" data-i18n="brand_title">Vendora Support Hub</span>
+      <div class="d-flex gap-2 align-items-center">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Language switch">
+          <button id="langSvBtn" type="button" class="btn btn-outline-light" onclick="setLanguage('sv')">🇸🇪 Svenska</button>
+          <button id="langEnBtn" type="button" class="btn btn-outline-light" onclick="setLanguage('en')">🇬🇧 English</button>
+        </div>
+        <div id="topActions" class="d-flex gap-2"></div>
       </div>
     </div>
   </nav>
@@ -55,54 +58,54 @@
     <div class="row g-4">
       <div class="col-12">
         <div class="card p-4 shadow-sm">
-          <div class="section-title">Användare</div>
-          <div id="usersList" class="small text-muted">Laddar...</div>
+          <div class="section-title" data-i18n="users_title">Användare</div>
+          <div id="usersList" class="small text-muted" data-i18n="loading">Laddar...</div>
         </div>
       </div>
 
       <div class="col-lg-8">
         <div class="card p-4 shadow-sm">
-          <div class="section-title">Inställningar</div>
+          <div class="section-title" data-i18n="settings_title">Inställningar</div>
           <div class="mt-2">
-            <label class="form-label fw-bold">Keywords (alla rader)</label>
+            <label class="form-label fw-bold" data-i18n="keywords_all_rows">Keywords (alla rader)</label>
             <div id="keywordsList" class="d-grid gap-2"></div>
           </div>
         </div>
         <div class="card p-4 shadow-sm mt-4">
-          <div class="section-title">Signaturer (gruppmail)</div>
-          <label class="form-label fw-bold">Välj grupp</label>
+          <div class="section-title" data-i18n="signatures_title">Signaturer (gruppmail)</div>
+          <label class="form-label fw-bold" data-i18n="select_group">Välj grupp</label>
           <select id="signatureSelect" class="form-select mb-2"></select>
-          <textarea id="signatureEditor" class="form-control" rows="7" placeholder="Skriv signatur för vald grupp..."></textarea>
+          <textarea id="signatureEditor" class="form-control" rows="7" data-i18n-placeholder="signature_placeholder" placeholder="Skriv signatur för vald grupp..."></textarea>
           <div class="d-flex justify-content-end mt-2">
-            <button class="btn btn-outline-primary" onclick="saveSelectedSignature()">Spara signatur</button>
+            <button class="btn btn-outline-primary" onclick="saveSelectedSignature()" data-i18n="save_signature_btn">Spara signatur</button>
           </div>
         </div>
       </div>
 
       <div class="col-lg-4">
         <div class="card p-4 shadow-sm mb-4">
-          <div class="section-title">Synk</div>
-          <div id="latestSyncInfo" class="muted mb-2">Senaste synk: laddar...</div>
-          <div class="muted mb-2">Hämtar nya Gmail-ärenden till databasen</div>
-          <button id="syncBtn" class="btn btn-primary w-100" onclick="runSync()">Synka nu</button>
+          <div class="section-title" data-i18n="sync_title">Synk</div>
+          <div id="latestSyncInfo" class="muted mb-2" data-i18n="sync_latest_loading">Senaste synk: laddar...</div>
+          <div class="muted mb-2" data-i18n="sync_desc">Hämtar nya Gmail-ärenden till databasen</div>
+          <button id="syncBtn" class="btn btn-primary w-100" onclick="runSync()" data-i18n="sync_now_btn">Synka nu</button>
           <div id="syncResult" class="muted mt-2"></div>
         </div>
 
         <div class="card p-4 shadow-sm mb-4">
-          <div class="section-title">Blacklist</div>
-          <div class="muted mb-2">Välj email för att avblockera</div>
+          <div class="section-title" data-i18n="blacklist_title">Blacklist</div>
+          <div class="muted mb-2" data-i18n="blacklist_pick">Välj email för att avblockera</div>
           <select id="blacklistSelect" class="form-select mb-2"></select>
-          <button class="btn btn-outline-success w-100" onclick="unblockSelected()">Avblockera vald</button>
+          <button class="btn btn-outline-success w-100" onclick="unblockSelected()" data-i18n="unblock_btn">Avblockera vald</button>
         </div>
 
         <div class="card p-4 shadow-sm">
-          <div class="section-title">AI Prompt</div>
-          <label class="form-label fw-bold">Prompt</label>
-          <textarea id="aiPrompt" class="form-control" rows="5" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
-          <label class="form-label fw-bold mt-3">AI Språkregel</label>
-          <textarea id="aiLanguageRule" class="form-control" rows="4" placeholder="Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ..."></textarea>
+          <div class="section-title" data-i18n="ai_prompt_title">AI Prompt</div>
+          <label class="form-label fw-bold" data-i18n="prompt_label">Prompt</label>
+          <textarea id="aiPrompt" class="form-control" rows="5" data-i18n-placeholder="prompt_placeholder" placeholder="Skriv ett vänligt, kort och professionellt svar..."></textarea>
+          <label class="form-label fw-bold mt-3" data-i18n="ai_rule_label">AI Språkregel</label>
+          <textarea id="aiLanguageRule" class="form-control" rows="4" data-i18n-placeholder="ai_rule_placeholder" placeholder="Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ..."></textarea>
           <div class="d-flex justify-content-end mt-2">
-            <button class="btn btn-primary" onclick="saveAiSettings()">Spara AI-inställningar</button>
+            <button class="btn btn-primary" onclick="saveAiSettings()" data-i18n="save_ai_btn">Spara AI-inställningar</button>
           </div>
         </div>
       </div>
@@ -114,24 +117,24 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Redigera användare</h5>
+          <h5 class="modal-title" data-i18n="edit_user_title">Redigera användare</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">Email</label>
+            <label class="form-label" data-i18n="email_label">Email</label>
             <input id="editEmail" class="form-control" disabled>
           </div>
           <div class="mb-3">
-            <label class="form-label">Namn</label>
+            <label class="form-label" data-i18n="name_label">Namn</label>
             <input id="editName" class="form-control">
           </div>
           <div class="mb-3">
-            <label class="form-label">Grupper (kommaseparerat)</label>
-            <input id="editGroup" class="form-control" placeholder="SUPPORT,RMA">
+            <label class="form-label" data-i18n="groups_label">Grupper (kommaseparerat)</label>
+            <input id="editGroup" class="form-control" data-i18n-placeholder="groups_placeholder" placeholder="SUPPORT,RMA">
           </div>
           <div class="mb-3">
-            <label class="form-label">Roll</label>
+            <label class="form-label" data-i18n="role_label">Roll</label>
             <select id="editRole" class="form-select">
               <option value="User">User</option>
               <option value="Admin">Admin</option>
@@ -139,12 +142,12 @@
           </div>
           <div class="form-check">
             <input id="editActive" class="form-check-input" type="checkbox" checked>
-            <label class="form-check-label">Aktiv</label>
+            <label class="form-check-label" data-i18n="active_label">Aktiv</label>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
-          <button class="btn btn-primary" onclick="saveUserEdit()">Spara</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancel_btn">Avbryt</button>
+          <button class="btn btn-primary" onclick="saveUserEdit()" data-i18n="save_btn">Spara</button>
         </div>
       </div>
     </div>
@@ -152,6 +155,140 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const I18N = {
+      sv: {
+        brand_title: 'Vendora Support Hub',
+        back: 'Tillbaka',
+        logout: 'Logga ut',
+        users_title: 'Användare',
+        loading: 'Laddar...',
+        settings_title: 'Inställningar',
+        keywords_all_rows: 'Keywords (alla rader)',
+        signatures_title: 'Signaturer (gruppmail)',
+        select_group: 'Välj grupp',
+        signature_placeholder: 'Skriv signatur för vald grupp...',
+        save_signature_btn: 'Spara signatur',
+        sync_title: 'Synk',
+        sync_latest_loading: 'Senaste synk: laddar...',
+        sync_desc: 'Hämtar nya Gmail-ärenden till databasen',
+        sync_now_btn: 'Synka nu',
+        syncing_btn: 'Synkar...',
+        blacklist_title: 'Blacklist',
+        blacklist_pick: 'Välj email för att avblockera',
+        unblock_btn: 'Avblockera vald',
+        ai_prompt_title: 'AI Prompt',
+        prompt_label: 'Prompt',
+        prompt_placeholder: 'Skriv ett vänligt, kort och professionellt svar...',
+        ai_rule_label: 'AI Språkregel',
+        ai_rule_placeholder: 'Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ...',
+        save_ai_btn: 'Spara AI-inställningar',
+        edit_user_title: 'Redigera användare',
+        email_label: 'Email',
+        name_label: 'Namn',
+        groups_label: 'Grupper (kommaseparerat)',
+        groups_placeholder: 'SUPPORT,RMA',
+        role_label: 'Roll',
+        active_label: 'Aktiv',
+        cancel_btn: 'Avbryt',
+        save_btn: 'Spara',
+        no_admin: 'Ingen adminbehörighet',
+        no_groups: 'Inga grupper',
+        edit_user_btn: 'Editera',
+        delete_user_btn: 'Ta bort',
+        fill_required: 'Fyll i namn, grupp och roll',
+        remove_user_confirm: 'Ta bort {email}?',
+        request_failed: 'Request failed',
+        error_prefix: 'Fel',
+        latest_sync_none: 'Senaste synk: ingen körning loggad ännu.',
+        latest_sync: 'Senaste synk: {ts} • {source}',
+        signature_saved: 'Signatur sparad',
+        ai_saved: 'AI-inställningar sparade',
+        saved: 'Sparat'
+      },
+      en: {
+        brand_title: 'Vendora Support Hub',
+        back: 'Back',
+        logout: 'Log out',
+        users_title: 'Users',
+        loading: 'Loading...',
+        settings_title: 'Settings',
+        keywords_all_rows: 'Keywords (all rows)',
+        signatures_title: 'Signatures (group mailboxes)',
+        select_group: 'Select group',
+        signature_placeholder: 'Write signature for selected group...',
+        save_signature_btn: 'Save signature',
+        sync_title: 'Sync',
+        sync_latest_loading: 'Latest sync: loading...',
+        sync_desc: 'Fetches new Gmail tickets into the database',
+        sync_now_btn: 'Sync now',
+        syncing_btn: 'Syncing...',
+        blacklist_title: 'Blacklist',
+        blacklist_pick: 'Choose email to unblock',
+        unblock_btn: 'Unblock selected',
+        ai_prompt_title: 'AI Prompt',
+        prompt_label: 'Prompt',
+        prompt_placeholder: 'Write a friendly, short, professional reply...',
+        ai_rule_label: 'AI Language Rule',
+        ai_rule_placeholder: 'Ex: CRITICAL: Reply ONLY in {{LANGUAGE}} ...',
+        save_ai_btn: 'Save AI settings',
+        edit_user_title: 'Edit user',
+        email_label: 'Email',
+        name_label: 'Name',
+        groups_label: 'Groups (comma-separated)',
+        groups_placeholder: 'SUPPORT,RMA',
+        role_label: 'Role',
+        active_label: 'Active',
+        cancel_btn: 'Cancel',
+        save_btn: 'Save',
+        no_admin: 'No admin access',
+        no_groups: 'No groups',
+        edit_user_btn: 'Edit',
+        delete_user_btn: 'Delete',
+        fill_required: 'Fill in name, group, and role',
+        remove_user_confirm: 'Delete {email}?',
+        request_failed: 'Request failed',
+        error_prefix: 'Error',
+        latest_sync_none: 'Latest sync: no run logged yet.',
+        latest_sync: 'Latest sync: {ts} • {source}',
+        signature_saved: 'Signature saved',
+        ai_saved: 'AI settings saved',
+        saved: 'Saved'
+      }
+    };
+    let currentLang = localStorage.getItem('supporthub_lang') || 'sv';
+    const tr = (key, vars = {}) => {
+      let s = (I18N[currentLang] && I18N[currentLang][key]) || I18N.sv[key] || key;
+      Object.keys(vars).forEach((k) => { s = s.replace(`{${k}}`, vars[k]); });
+      return s;
+    };
+    function renderTopActions() {
+      document.getElementById('topActions').innerHTML =
+        `<a class="btn btn-outline-light btn-sm" href="/">${tr('back')}</a>
+        <a class="btn btn-outline-light btn-sm" href="/auth/logout">${tr('logout')}</a>`;
+    }
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        el.textContent = tr(el.getAttribute('data-i18n'));
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        el.setAttribute('placeholder', tr(el.getAttribute('data-i18n-placeholder')));
+      });
+      document.getElementById('langSvBtn').classList.toggle('btn-light', currentLang === 'sv');
+      document.getElementById('langSvBtn').classList.toggle('btn-outline-light', currentLang !== 'sv');
+      document.getElementById('langEnBtn').classList.toggle('btn-light', currentLang === 'en');
+      document.getElementById('langEnBtn').classList.toggle('btn-outline-light', currentLang !== 'en');
+    }
+    function setLanguage(lang) {
+      currentLang = lang === 'en' ? 'en' : 'sv';
+      localStorage.setItem('supporthub_lang', currentLang);
+      renderTopActions();
+      applyI18n();
+      loadUsers();
+      loadBlacklist();
+      loadLatestSync();
+      loadConfig();
+    }
+
     const editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
     let editUserEmail = null;
     let blacklistIndex = new Map();
@@ -165,7 +302,7 @@
         return null;
       }
       if (res.status === 403) {
-        alert('Ingen adminbehörighet');
+        alert(tr('no_admin'));
         window.location.href = '/';
         return null;
       }
@@ -173,9 +310,9 @@
         const text = await res.text();
         try {
           const err = JSON.parse(text);
-          throw new Error(`${res.status}: ${err.error || err.reason || 'Request failed'}`);
+          throw new Error(`${res.status}: ${err.error || err.reason || tr('request_failed')}`);
         } catch (e) {
-          throw new Error(`${res.status}: ${text || 'Request failed'}`);
+          throw new Error(`${res.status}: ${text || tr('request_failed')}`);
         }
       }
       return res.json();
@@ -190,11 +327,11 @@
           <div class="user-row">
             <div>
               <div class="fw-bold">${u.name} <span class="text-muted">(${u.email})</span></div>
-              <div class="user-meta">${groups || '<span class="muted">Inga grupper</span>'} • ${u.role}</div>
+              <div class="user-meta">${groups || `<span class="muted">${tr('no_groups')}</span>`} • ${u.role}</div>
             </div>
             <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-primary" onclick="openEdit('${u.email}', '${u.name}', '${u.group}', '${u.role}', ${u.active})">Editera</button>
-              <button class="btn btn-sm btn-outline-danger" onclick="delUser('${u.email}')">Ta bort</button>
+              <button class="btn btn-sm btn-outline-primary" onclick="openEdit('${u.email}', '${u.name}', '${u.group}', '${u.role}', ${u.active})">${tr('edit_user_btn')}</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="delUser('${u.email}')">${tr('delete_user_btn')}</button>
             </div>
           </div>`;
       }).join('');
@@ -215,7 +352,7 @@
       const group = document.getElementById('editGroup').value.trim();
       const role = document.getElementById('editRole').value;
       const active = document.getElementById('editActive').checked;
-      if (!name || !group || !role) return alert('Fyll i namn, grupp och roll');
+      if (!name || !group || !role) return alert(tr('fill_required'));
 
       await api(`/admin/users/${encodeURIComponent(editUserEmail)}`, {
         method: 'PUT',
@@ -226,7 +363,7 @@
     }
 
     async function delUser(email) {
-      if (!confirm(`Ta bort ${email}?`)) return;
+      if (!confirm(tr('remove_user_confirm', { email }))) return;
       await api(`/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
       loadUsers();
     }
@@ -236,7 +373,7 @@
       if (!list) return;
       blacklistIndex = new Map(list.map(b => [b.email, b.blocked_at]));
       const select = document.getElementById('blacklistSelect');
-      select.innerHTML = list.map(b => `<option value="${b.email}">${b.email} • ${new Date(b.blocked_at).toLocaleString()}</option>`).join('');
+      select.innerHTML = list.map(b => `<option value="${b.email}">${b.email} • ${new Date(b.blocked_at).toLocaleString(currentLang === 'en' ? 'en-GB' : 'sv-SE')}</option>`).join('');
     }
 
     async function unblockSelected() {
@@ -250,16 +387,16 @@
       const btn = document.getElementById('syncBtn');
       const resultBox = document.getElementById('syncResult');
       btn.disabled = true;
-      btn.textContent = 'Synkar...';
+      btn.textContent = tr('syncing_btn');
       resultBox.textContent = '';
       try {
         await api('/admin/jobs/gmail-sync', { method: 'POST' });
         resultBox.textContent = '';
       } catch (err) {
-        resultBox.textContent = `Fel: ${err.message}`;
+        resultBox.textContent = `${tr('error_prefix')}: ${err.message}`;
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Synka nu';
+        btn.textContent = tr('sync_now_btn');
         loadLatestSync();
       }
     }
@@ -268,11 +405,11 @@
       const box = document.getElementById('latestSyncInfo');
       const res = await api('/admin/jobs/gmail-sync/latest');
       if (!res || !res.latest) {
-        box.textContent = 'Senaste synk: ingen körning loggad ännu.';
+        box.textContent = tr('latest_sync_none');
         return;
       }
-      const ts = new Date(res.latest.timestamp).toLocaleString('sv-SE');
-      box.textContent = `Senaste synk: ${ts} • ${res.latest.source || res.latest.user_email || 'CRON'}`;
+      const ts = new Date(res.latest.timestamp).toLocaleString(currentLang === 'en' ? 'en-GB' : 'sv-SE');
+      box.textContent = tr('latest_sync', { ts, source: (res.latest.source || res.latest.user_email || 'CRON') });
     }
 
     async function loadConfig() {
@@ -287,7 +424,7 @@
         <div class="config-row">
           <div class="fw-bold">${r.key}</div>
           <input class="form-control" id="cfg_${r.key}" value="${(r.value || '').replace(/"/g, '&quot;')}">
-          <button class="btn btn-outline-primary" onclick="saveConfigKey('${r.key}')">Spara</button>
+          <button class="btn btn-outline-primary" onclick="saveConfigKey('${r.key}')">${tr('save_btn')}</button>
         </div>`).join('');
 
       const signatures = rows.filter(r => r.key.startsWith('SIGNATURE_'));
@@ -314,7 +451,7 @@
       const value = document.getElementById('signatureEditor').value.trim();
       await api('/admin/config', { method: 'POST', body: JSON.stringify({ key, value }) });
       signatureValues.set(key, value);
-      alert('Signatur sparad');
+      alert(tr('signature_saved'));
     }
 
     async function saveAiSettings() {
@@ -322,15 +459,17 @@
       const languageRule = document.getElementById('aiLanguageRule').value.trim();
       await api('/admin/config', { method: 'POST', body: JSON.stringify({ key: 'AI_PROMPT', value: prompt }) });
       await api('/admin/config', { method: 'POST', body: JSON.stringify({ key: 'AI_LANGUAGE_RULE', value: languageRule }) });
-      alert('AI-inställningar sparade');
+      alert(tr('ai_saved'));
     }
 
     async function saveConfigKey(key) {
       const value = document.getElementById(`cfg_${key}`).value.trim();
       await api('/admin/config', { method: 'POST', body: JSON.stringify({ key, value }) });
-      alert('Sparat');
+      alert(tr('saved'));
     }
 
+    renderTopActions();
+    applyI18n();
     loadUsers();
     loadConfig();
     loadBlacklist();
