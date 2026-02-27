@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
   user_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
+  slack_member_id TEXT,
   "group" TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'User',
   active BOOLEAN NOT NULL DEFAULT TRUE,

@@ -1,4 +1,5 @@
 const ENABLED = () => !!String(process.env.SLACK_WEBHOOK_URL || '').trim();
+const DM_ENABLED = () => !!String(process.env.SLACK_BOT_TOKEN || '').trim();
 
 async function postSlack(payload) {
   const webhook = String(process.env.SLACK_WEBHOOK_URL || '').trim();
@@ -21,6 +22,32 @@ async function postSlack(payload) {
   }
 }
 
+async function postSlackDm(memberId, payload) {
+  const token = String(process.env.SLACK_BOT_TOKEN || '').trim();
+  if (!token) return { ok: false, skipped: true, reason: 'missing_bot_token' };
+  const channel = String(memberId || '').trim();
+  if (!channel) return { ok: false, skipped: true, reason: 'missing_member_id' };
+
+  try {
+    const res = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ channel, ...payload })
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.ok) {
+      throw new Error(`Slack DM failed: ${json.error || res.status}`);
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error('[slack] dm failed:', err.message || err);
+    return { ok: false, error: err.message || 'dm_failed' };
+  }
+}
+
 function trunc(v, n = 120) {
   const s = String(v || '').trim();
   if (s.length <= n) return s;
@@ -40,6 +67,10 @@ function getSlackMention(email) {
     if (key && value) map.set(key, value);
   }
   return map.get(String(email).toLowerCase()) || '';
+}
+
+function isValidSlackMemberId(value) {
+  return /^U[A-Z0-9]+$/.test(String(value || '').trim().toUpperCase());
 }
 
 async function notifyTicketCreated(data) {
@@ -65,17 +96,38 @@ async function notifyTicketMoved(data) {
 }
 
 async function notifyTicketAssigned(data) {
-  if (!ENABLED()) return;
   const ownerText = data.ownerEmail ? data.ownerEmail : 'Ej tilldelad';
-  const mention = getSlackMention(data.ownerEmail);
+  const mention = isValidSlackMemberId(data.slackMemberId)
+    ? `<@${String(data.slackMemberId).trim().toUpperCase()}>`
+    : getSlackMention(data.ownerEmail);
   const assignedLine = mention ? `*Tilldelad:* ${ownerText} (${mention})` : `*Tilldelad:* ${ownerText}`;
-  await postSlack({
-    text: `Tilldelning: ${data.ticketId} -> ${ownerText}`,
-    blocks: [
-      { type: 'section', text: { type: 'mrkdwn', text: `:bust_in_silhouette: *Tilldelning ändrad* \`${data.ticketId}\`` } },
-      { type: 'section', text: { type: 'mrkdwn', text: `${assignedLine}\n*Grupp:* ${data.group || '-'}\n*Gjort av:* ${data.actorEmail}` } }
-    ]
-  });
+  let channelRes = { ok: false, skipped: true, reason: 'missing_webhook' };
+  if (ENABLED()) {
+    channelRes = await postSlack({
+      text: `Tilldelning: ${data.ticketId} -> ${ownerText}`,
+      blocks: [
+        { type: 'section', text: { type: 'mrkdwn', text: `:bust_in_silhouette: *Tilldelning ändrad* \`${data.ticketId}\`` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `${assignedLine}\n*Grupp:* ${data.group || '-'}\n*Gjort av:* ${data.actorEmail}` } }
+      ]
+    });
+  }
+  let dmRes = { ok: false, skipped: true, reason: 'not_requested' };
+  if (isValidSlackMemberId(data.slackMemberId) && DM_ENABLED()) {
+    dmRes = await postSlackDm(String(data.slackMemberId).trim().toUpperCase(), {
+      text: `Du har tilldelats ärende ${data.ticketId} (${data.group || '-'})`,
+      blocks: [
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: `:bell: Du har blivit tilldelad ärende \`${data.ticketId}\`` }
+        },
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: `*Grupp:* ${data.group || '-'}\n*Tilldelad av:* ${data.actorEmail}` }
+        }
+      ]
+    });
+  }
+  return { ok: true, channel: channelRes, dm: dmRes };
 }
 
 async function notifyTicketStatusChanged(data) {
@@ -94,5 +146,6 @@ module.exports = {
   notifyTicketCreated,
   notifyTicketMoved,
   notifyTicketAssigned,
-  notifyTicketStatusChanged
+  notifyTicketStatusChanged,
+  isValidSlackMemberId
 };

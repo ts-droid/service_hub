@@ -13,7 +13,8 @@ const {
   notifyTicketCreated,
   notifyTicketMoved,
   notifyTicketAssigned,
-  notifyTicketStatusChanged
+  notifyTicketStatusChanged,
+  isValidSlackMemberId
 } = require('./slack');
 
 const app = express();
@@ -261,8 +262,8 @@ app.post('/users/register', requireAuth, async (req, res) => {
   }
 
   await db.query(
-    'INSERT INTO users (user_id, name, email, "group", role, active, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-    [makeId('USR'), name, email, group, 'User', true, nowIso()]
+    'INSERT INTO users (user_id, name, email, slack_member_id, "group", role, active, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [makeId('USR'), name, email, null, group, 'User', true, nowIso()]
   );
   await db.query('INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)', [null, email, 'USER_CREATED', `Created ${email}`]);
   res.json({ ok: true });
@@ -375,7 +376,7 @@ app.get('/tickets/stats', requireAuth, async (req, res) => {
 
 app.get('/users/assignees', requireAuth, async (req, res) => {
   const result = await db.query(
-    `SELECT name, email, "group"
+    `SELECT name, email, slack_member_id, "group"
      FROM users
      WHERE active = TRUE
      ORDER BY name ASC`
@@ -585,15 +586,19 @@ app.post('/tickets/:id/assign', requireAuth, async (req, res) => {
   const currentGroup = current.rows[0].group;
 
   let ownerEmail = null;
+  let ownerName = null;
+  let ownerSlackMemberId = null;
   let status = 'Nytt';
   if (ownerEmailRaw) {
     const ownerRes = await db.query(
-      'SELECT email, active FROM users WHERE lower(email) = $1',
+      'SELECT name, email, active, slack_member_id FROM users WHERE lower(email) = $1',
       [ownerEmailRaw]
     );
     const owner = ownerRes.rows[0];
     if (!owner || !owner.active) return res.status(400).json({ error: 'invalid owner' });
     ownerEmail = owner.email.toLowerCase();
+    ownerName = owner.name || owner.email;
+    ownerSlackMemberId = owner.slack_member_id || null;
     status = 'Pågår';
   }
 
@@ -603,12 +608,20 @@ app.post('/tickets/:id/assign', requireAuth, async (req, res) => {
   );
 
   if (ownerEmail && ownerEmail !== previousOwner) {
-    await notifyTicketAssigned({
+    const notifyResult = await notifyTicketAssigned({
       ticketId,
       ownerEmail,
+      ownerName: ownerName || ownerEmail,
+      slackMemberId: ownerSlackMemberId || null,
       group: currentGroup || null,
       actorEmail: req.user.email
     });
+    if (notifyResult?.dm && notifyResult.dm.ok === false && !notifyResult.dm.skipped) {
+      await db.query(
+        'INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)',
+        [ticketId, req.user.email, 'SLACK_DM_FAILED', notifyResult.dm.error || 'unknown']
+      );
+    }
   }
   res.json({ ok: true });
 });
@@ -656,7 +669,7 @@ app.post('/ai/gemini', requireAuth, async (req, res) => {
 });
 
 app.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
-  const result = await db.query('SELECT name, email, "group", role, active FROM users ORDER BY name ASC');
+  const result = await db.query('SELECT name, email, slack_member_id, "group", role, active FROM users ORDER BY name ASC');
   res.json(result.rows);
 });
 
@@ -699,13 +712,18 @@ app.put('/admin/users/:email', requireAuth, requireAdmin, async (req, res) => {
   const name = (req.body?.name || '').trim();
   const group = (req.body?.group || '').trim();
   const role = (req.body?.role || '').trim();
+  const slackMemberIdRaw = String(req.body?.slack_member_id || '').trim().toUpperCase();
+  const slackMemberId = slackMemberIdRaw || null;
   const active = req.body?.active;
 
   if (!name || !group || !role) return res.status(400).json({ error: 'name, group, role required' });
+  if (slackMemberId && !isValidSlackMemberId(slackMemberId)) {
+    return res.status(400).json({ error: 'invalid slack_member_id format' });
+  }
 
   await db.query(
-    'UPDATE users SET name = $1, "group" = $2, role = $3, active = $4 WHERE email = $5',
-    [name, group, role, active !== undefined ? !!active : true, email]
+    'UPDATE users SET name = $1, "group" = $2, role = $3, active = $4, slack_member_id = $5 WHERE email = $6',
+    [name, group, role, active !== undefined ? !!active : true, slackMemberId, email]
   );
   res.json({ ok: true });
 });
@@ -744,6 +762,7 @@ app.get('/admin/jobs/gmail-sync/latest', requireAuth, requireAdmin, async (req, 
 });
 
 async function ensureRuntimeSchema() {
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS slack_member_id TEXT`);
   await db.query(`CREATE TABLE IF NOT EXISTS user_oauth_tokens (
     email TEXT PRIMARY KEY,
     refresh_token TEXT,

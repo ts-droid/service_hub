@@ -134,6 +134,10 @@
             <input id="editGroup" class="form-control" data-i18n-placeholder="groups_placeholder" placeholder="SUPPORT,RMA">
           </div>
           <div class="mb-3">
+            <label class="form-label" data-i18n="slack_member_id_label">Slack Member ID</label>
+            <input id="editSlackMemberId" class="form-control" data-i18n-placeholder="slack_member_id_placeholder" placeholder="U0123456789">
+          </div>
+          <div class="mb-3">
             <label class="form-label" data-i18n="role_label">Roll</label>
             <select id="editRole" class="form-select">
               <option value="User">User</option>
@@ -187,6 +191,8 @@
         name_label: 'Namn',
         groups_label: 'Grupper (kommaseparerat)',
         groups_placeholder: 'SUPPORT,RMA',
+        slack_member_id_label: 'Slack Member ID',
+        slack_member_id_placeholder: 'U0123456789',
         role_label: 'Roll',
         active_label: 'Aktiv',
         cancel_btn: 'Avbryt',
@@ -196,6 +202,7 @@
         edit_user_btn: 'Editera',
         delete_user_btn: 'Ta bort',
         fill_required: 'Fyll i namn, grupp och roll',
+        slack_invalid: 'Ogiltigt Slack Member ID (måste börja med U).',
         remove_user_confirm: 'Ta bort {email}?',
         request_failed: 'Request failed',
         error_prefix: 'Fel',
@@ -236,6 +243,8 @@
         name_label: 'Name',
         groups_label: 'Groups (comma-separated)',
         groups_placeholder: 'SUPPORT,RMA',
+        slack_member_id_label: 'Slack Member ID',
+        slack_member_id_placeholder: 'U0123456789',
         role_label: 'Role',
         active_label: 'Active',
         cancel_btn: 'Cancel',
@@ -245,6 +254,7 @@
         edit_user_btn: 'Edit',
         delete_user_btn: 'Delete',
         fill_required: 'Fill in name, group, and role',
+        slack_invalid: 'Invalid Slack Member ID (must start with U).',
         remove_user_confirm: 'Delete {email}?',
         request_failed: 'Request failed',
         error_prefix: 'Error',
@@ -294,6 +304,7 @@
     let blacklistIndex = new Map();
     let signatureValues = new Map();
     const defaultSignatureKeys = ['SIGNATURE_SUPPORT', 'SIGNATURE_RMA', 'SIGNATURE_FINANCE', 'SIGNATURE_LOGISTICS', 'SIGNATURE_MARKETING', 'SIGNATURE_SALES'];
+    const jsq = (v) => JSON.stringify(String(v ?? ''));
 
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
@@ -323,25 +334,27 @@
       if (!users) return;
       document.getElementById('usersList').innerHTML = users.map(u => {
         const groups = (u.group || '').split(',').filter(Boolean).map(g => `<span class="pill me-1">${g.trim()}</span>`).join('');
+        const slackMeta = u.slack_member_id ? ` • Slack: ${u.slack_member_id}` : '';
         return `
           <div class="user-row">
             <div>
               <div class="fw-bold">${u.name} <span class="text-muted">(${u.email})</span></div>
-              <div class="user-meta">${groups || `<span class="muted">${tr('no_groups')}</span>`} • ${u.role}</div>
+              <div class="user-meta">${groups || `<span class="muted">${tr('no_groups')}</span>`} • ${u.role}${slackMeta}</div>
             </div>
             <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-primary" onclick="openEdit('${u.email}', '${u.name}', '${u.group}', '${u.role}', ${u.active})">${tr('edit_user_btn')}</button>
-              <button class="btn btn-sm btn-outline-danger" onclick="delUser('${u.email}')">${tr('delete_user_btn')}</button>
+              <button class="btn btn-sm btn-outline-primary" onclick="openEdit(${jsq(u.email)}, ${jsq(u.name)}, ${jsq(u.group)}, ${jsq(u.role)}, ${u.active ? 'true' : 'false'}, ${jsq(u.slack_member_id || '')})">${tr('edit_user_btn')}</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="delUser(${jsq(u.email)})">${tr('delete_user_btn')}</button>
             </div>
           </div>`;
       }).join('');
     }
 
-    function openEdit(email, name, group, role, active) {
+    function openEdit(email, name, group, role, active, slackMemberId) {
       editUserEmail = email;
       document.getElementById('editEmail').value = email;
       document.getElementById('editName').value = name || '';
       document.getElementById('editGroup').value = group || '';
+      document.getElementById('editSlackMemberId').value = slackMemberId || '';
       document.getElementById('editRole').value = role || 'User';
       document.getElementById('editActive').checked = !!active;
       editModal.show();
@@ -351,12 +364,14 @@
       const name = document.getElementById('editName').value.trim();
       const group = document.getElementById('editGroup').value.trim();
       const role = document.getElementById('editRole').value;
+      const slackMemberId = document.getElementById('editSlackMemberId').value.trim().toUpperCase();
       const active = document.getElementById('editActive').checked;
       if (!name || !group || !role) return alert(tr('fill_required'));
+      if (slackMemberId && !/^U[A-Z0-9]+$/.test(slackMemberId)) return alert(tr('slack_invalid'));
 
       await api(`/admin/users/${encodeURIComponent(editUserEmail)}`, {
         method: 'PUT',
-        body: JSON.stringify({ name, group, role, active })
+        body: JSON.stringify({ name, group, role, active, slack_member_id: slackMemberId || null })
       });
       editModal.hide();
       loadUsers();
