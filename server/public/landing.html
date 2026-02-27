@@ -181,10 +181,11 @@
       applyI18n();
     }
 
+    let currentUser = null;
+
     async function api(path, opts = {}) {
       const res = await fetch(path, { ...opts, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
       if (res.status === 401) {
-        window.location.href = '/auth/google';
         return null;
       }
       if (!res.ok) {
@@ -195,6 +196,10 @@
     }
 
     async function register() {
+      if (!currentUser?.email) {
+        window.location.href = '/auth/google';
+        return;
+      }
       const name = document.getElementById('userName').value.trim();
       const selectedGroups = Array.from(document.querySelectorAll('.grp-check:checked')).map(cb => cb.value).join(',');
 
@@ -210,7 +215,12 @@
 
     async function init() {
       const me = await api('/me');
-      if (!me) return;
+      currentUser = me || null;
+      if (!me) {
+        document.getElementById('userEmail').value = '';
+        document.getElementById('userEmail').setAttribute('placeholder', '');
+        return;
+      }
       document.getElementById('userEmail').value = me.email || '';
       if (me.name) document.getElementById('userName').value = me.name;
     }
