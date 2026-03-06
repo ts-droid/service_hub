@@ -477,7 +477,11 @@
 
     function canEditGroupKeywords(group) {
       const grp = String(group || '').toUpperCase();
-      return editableKeywordGroups.includes(grp);
+      if (isAdminUser) return true;
+      const editable = editableKeywordGroups.length
+        ? editableKeywordGroups
+        : currentUserGroups.map((g) => String(g).toUpperCase());
+      return editable.includes(grp);
     }
 
     function getMatchedForGroup(group) {
@@ -493,8 +497,13 @@
       const box = document.getElementById('mClassification');
       const grp = String(group || '').toUpperCase();
       const matched = getMatchedForGroup(grp);
-      const editableLabel = editableKeywordGroups.length
-        ? editableKeywordGroups.join(', ')
+      const editableGroupsForUser = isAdminUser
+        ? ['SUPPORT', 'RMA', 'FINANCE', 'LOGISTICS', 'MARKETING', 'SALES']
+        : (editableKeywordGroups.length
+          ? editableKeywordGroups
+          : currentUserGroups.map((g) => String(g).toUpperCase()));
+      const editableLabel = editableGroupsForUser.length
+        ? editableGroupsForUser.join(', ')
         : 'Inga';
       const chips = matched.length
         ? matched.map(k => `<span class="keyword-chip">${esc(k)}</span>`).join('')
@@ -554,13 +563,23 @@
     async function loadFilters() {
       const data = await api('/groups');
       if (!data) return;
-      document.getElementById('filterGroup').innerHTML = data.groups.map(g => `<option value="${g}">${esc(g)}</option>`).join('');
-      if (currentUserGroups.length === 1) {
-        const onlyGroup = currentUserGroups[0].toUpperCase();
-        const select = document.getElementById('filterGroup');
-        const hasOption = Array.from(select.options).some(o => String(o.value).toUpperCase() === onlyGroup);
-        if (hasOption) select.value = onlyGroup;
+      const select = document.getElementById('filterGroup');
+      const memberGroups = currentUserGroups.map((g) => String(g).toUpperCase()).filter(Boolean);
+      const defaultGroup = memberGroups.length === 1 ? memberGroups[0] : 'Alla';
+      const visibleGroups = isAdminUser
+        ? data.groups
+        : ['Alla', ...memberGroups];
+      const deduped = [];
+      const seen = new Set();
+      for (const g of visibleGroups) {
+        const key = String(g);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(key);
       }
+      select.innerHTML = deduped.map(g => `<option value="${g}">${esc(g)}</option>`).join('');
+      const hasDefault = Array.from(select.options).some((o) => String(o.value).toUpperCase() === String(defaultGroup).toUpperCase());
+      if (hasDefault) select.value = defaultGroup;
       await loadKeywordConfigMap();
       await refresh();
     }
