@@ -23,6 +23,7 @@ app.use(cookieParser());
 app.use(express.static('public'));
 const GMAIL_SYNC_LOCK_KEY = 2026021701;
 const KEYWORD_ORDER = ['RMA', 'FINANCE', 'LOGISTICS', 'SALES', 'MARKETING', 'SUPPORT'];
+const DEFAULT_USER_GROUP = (process.env.DEFAULT_USER_GROUP || 'SUPPORT').toUpperCase();
 
 app.get('/healthz', async (_req, res) => {
   try {
@@ -88,6 +89,36 @@ async function getEditableKeywordGroups(email) {
   return String(user.group || '').split(',').map((g) => g.trim().toUpperCase()).filter((g) => GROUPS.includes(g));
 }
 
+async function ensureUserExists(email, name = '') {
+  const safeEmail = String(email || '').toLowerCase().trim();
+  if (!safeEmail) return null;
+  const existing = await db.query(
+    'SELECT user_id, name, email, "group", role, active FROM users WHERE lower(email) = $1',
+    [safeEmail]
+  );
+  if (existing.rows[0]) return existing.rows[0];
+
+  const group = GROUPS.includes(DEFAULT_USER_GROUP) ? DEFAULT_USER_GROUP : 'SUPPORT';
+  const displayName = String(name || '').trim() || safeEmail.split('@')[0];
+  const user = {
+    user_id: makeId('USR'),
+    name: displayName,
+    email: safeEmail,
+    group,
+    role: 'User',
+    active: true
+  };
+  await db.query(
+    'INSERT INTO users (user_id, name, email, slack_member_id, "group", role, active, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [user.user_id, user.name, user.email, null, user.group, user.role, user.active, nowIso()]
+  );
+  await db.query(
+    'INSERT INTO logs (ticket_id, user_email, action, details) VALUES ($1,$2,$3,$4)',
+    [null, safeEmail, 'USER_AUTO_CREATED', `Auto-created on first OAuth login with group ${group}`]
+  );
+  return user;
+}
+
 async function logSyncRun(source, userEmail, payload) {
   const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
   await db.query(
@@ -142,8 +173,7 @@ app.get('/', async (req, res) => {
     if (!token) return res.sendFile('landing.html', { root: 'public' });
     const { verifyToken } = require('./auth');
     const user = verifyToken(token);
-    const result = await db.query('SELECT user_id FROM users WHERE email = $1', [user.email]);
-    if (!result.rows[0]) return res.sendFile('landing.html', { root: 'public' });
+    await ensureUserExists(user.email, user.name || '');
     return res.sendFile('index.html', { root: 'public' });
   } catch (err) {
     return res.sendFile('landing.html', { root: 'public' });
@@ -226,6 +256,8 @@ app.get('/auth/google/callback', async (req, res) => {
         updated_at = EXCLUDED.updated_at`,
       [email, refreshToken, tokens.access_token || null, tokens.token_type || null, scope, expiryIso, nowIso()]
     );
+
+    await ensureUserExists(email, name);
 
     const token = signUser({ email, name });
     setSessionCookie(res, token);
