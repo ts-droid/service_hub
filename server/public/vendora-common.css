@@ -1,0 +1,373 @@
+/* ===================================================================
+   Vendora Common Design System
+   Shared across all Vendora apps (CRM, Priskontroll, Support Hub,
+   Support Matrix, Tullkod).
+
+   Usage:
+     <link rel="stylesheet" href="/static/vendora-common.css">
+   or:
+     @import url('https://priskontroll-production.up.railway.app/static/vendora-common.css');
+   =================================================================== */
+
+/* --- Design Tokens --- */
+:root {
+  /* Brand colors */
+  --vendora-accent: #c14130;
+  --vendora-accent-dark: #9a3226;
+  --vendora-accent-light: #e8d5d2;
+
+  /* Surfaces */
+  --vendora-bg: #f7f7f7;
+  --vendora-surface: #ffffff;
+  --vendora-surface-soft: #fafafa;
+  --vendora-hero: #101010;
+  --vendora-hero-soft: #1a1a1a;
+
+  /* Text */
+  --vendora-ink: #1a1a1a;
+  --vendora-muted: #6f6f6f;
+
+  /* Borders */
+  --vendora-line: #e5e5e5;
+  --vendora-line-strong: #d2d2d2;
+
+  /* Semantic */
+  --vendora-good: #2f7d42;
+  --vendora-warn: #b56b16;
+  --vendora-bad: #c63b25;
+
+  /* Elevation */
+  --vendora-shadow: 0 18px 40px rgba(0, 0, 0, 0.07);
+  --vendora-shadow-sm: 0 8px 22px rgba(0, 0, 0, 0.06);
+
+  /* Typography */
+  --vendora-font: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+
+  /* Border radius scale */
+  --vendora-radius-xs: 8px;
+  --vendora-radius-sm: 10px;
+  --vendora-radius-md: 16px;
+  --vendora-radius-lg: 20px;
+  --vendora-radius-xl: 24px;
+  --vendora-radius-2xl: 32px;
+  --vendora-radius-full: 999px;
+
+  /* Legacy aliases (apps that use --accent, --bg, etc. directly) */
+  --accent: var(--vendora-accent);
+  --accent-dark: var(--vendora-accent-dark);
+  --bg: var(--vendora-bg);
+  --surface: var(--vendora-surface);
+  --surface-soft: var(--vendora-surface-soft);
+  --ink: var(--vendora-ink);
+  --muted: var(--vendora-muted);
+  --line: var(--vendora-line);
+  --line-strong: var(--vendora-line-strong);
+  --good: var(--vendora-good);
+  --warn: var(--vendora-warn);
+  --bad: var(--vendora-bad);
+  --hero: var(--vendora-hero);
+  --hero-soft: var(--vendora-hero-soft);
+  --shadow: var(--vendora-shadow);
+}
+
+/* --- Base --- */
+body {
+  margin: 0;
+  background: var(--vendora-bg);
+  color: var(--vendora-ink);
+  font-family: var(--vendora-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+h1, h2, h3 {
+  font-weight: 300;
+  letter-spacing: 0.01em;
+}
+
+/* --- Header --- */
+.vendora-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--vendora-line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.vendora-header-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.vendora-brandmark img {
+  height: 28px;
+  display: block;
+}
+
+.vendora-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vendora-muted);
+}
+
+.vendora-nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.vendora-nav a:hover {
+  color: var(--vendora-ink);
+}
+
+.vendora-nav .active {
+  color: var(--vendora-ink);
+  font-weight: 700;
+}
+
+/* --- Buttons --- */
+.vendora-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--vendora-radius-full);
+  padding: 13px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--vendora-font);
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.vendora-btn-primary {
+  background: var(--vendora-accent);
+  color: #fff;
+}
+.vendora-btn-primary:hover {
+  background: var(--vendora-accent-dark);
+}
+
+.vendora-btn-secondary {
+  background: var(--vendora-surface);
+  color: var(--vendora-ink);
+  border: 1px solid var(--vendora-line);
+}
+.vendora-btn-secondary:hover {
+  background: var(--vendora-surface-soft);
+}
+
+.vendora-btn-ghost {
+  padding: 11px 16px;
+  border-radius: var(--vendora-radius-full);
+  border: 1px solid var(--vendora-line);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--vendora-ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--vendora-font);
+}
+.vendora-btn-ghost:hover {
+  background: var(--vendora-surface);
+}
+
+.vendora-btn-cta {
+  padding: 11px 18px;
+  border-radius: var(--vendora-radius-full);
+  background: var(--vendora-accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.vendora-btn-cta:hover {
+  background: var(--vendora-accent-dark);
+  color: #fff;
+}
+
+/* --- Cards --- */
+.vendora-card {
+  padding: 20px;
+  border-radius: var(--vendora-radius-lg);
+  background: var(--vendora-surface);
+  border: 1px solid var(--vendora-line);
+}
+
+.vendora-card-soft {
+  padding: 20px;
+  border-radius: var(--vendora-radius-lg);
+  background: var(--vendora-surface-soft);
+  border: 1px solid var(--vendora-line);
+}
+
+/* --- Section --- */
+.vendora-section {
+  margin-top: 18px;
+  background: var(--vendora-surface);
+  border: 1px solid var(--vendora-line);
+  border-radius: var(--vendora-radius-xl);
+  padding: 22px;
+  box-shadow: var(--vendora-shadow);
+}
+
+/* --- Pills / Badges --- */
+.vendora-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--vendora-radius-full);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vendora-pill-ok {
+  background: #edf6ef;
+  color: var(--vendora-good);
+}
+
+.vendora-pill-bad {
+  background: #fff0ed;
+  color: var(--vendora-bad);
+}
+
+.vendora-pill-soft {
+  background: #f1f1f1;
+  color: var(--vendora-ink);
+}
+
+.vendora-pill-warn {
+  background: #fef6ed;
+  color: var(--vendora-warn);
+}
+
+/* --- Data Table --- */
+.vendora-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.vendora-table th,
+.vendora-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--vendora-line);
+  vertical-align: top;
+}
+
+.vendora-table th {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vendora-muted);
+  background: var(--vendora-surface-soft);
+}
+
+.vendora-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.vendora-table td strong {
+  display: block;
+}
+
+.vendora-table td small {
+  display: block;
+  color: var(--vendora-muted);
+}
+
+/* --- Form Inputs --- */
+.vendora-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--vendora-line);
+  border-radius: var(--vendora-radius-sm);
+  font-size: 1rem;
+  font-family: var(--vendora-font);
+  color: var(--vendora-ink);
+  background: var(--vendora-surface);
+  box-sizing: border-box;
+}
+
+.vendora-input:focus {
+  outline: none;
+  border-color: var(--vendora-accent);
+  box-shadow: 0 0 0 3px var(--vendora-accent-light);
+}
+
+.vendora-select {
+  padding: 10px 12px;
+  border: 1px solid var(--vendora-line);
+  border-radius: var(--vendora-radius-sm);
+  font-size: 14px;
+  font-family: var(--vendora-font);
+  color: var(--vendora-ink);
+  background: var(--vendora-surface);
+}
+
+/* --- Language Toggle --- */
+.vendora-lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 16px;
+  border-radius: var(--vendora-radius-full);
+  border: 1px solid var(--vendora-line);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--vendora-ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--vendora-font);
+}
+.vendora-lang-toggle:hover {
+  background: var(--vendora-surface);
+}
+
+/* --- Utility --- */
+.vendora-shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 20px 56px;
+}
+
+.vendora-muted { color: var(--vendora-muted); }
+.vendora-good { color: var(--vendora-good); }
+.vendora-warn { color: var(--vendora-warn); }
+.vendora-bad { color: var(--vendora-bad); }
+
+/* --- Empty State --- */
+.vendora-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--vendora-muted);
+  border: 1.5px dashed var(--vendora-line);
+  border-radius: var(--vendora-radius-lg);
+  font-size: 15px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 980px) {
+  .vendora-header-inner {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .vendora-nav {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
