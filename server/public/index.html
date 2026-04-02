@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/vendora-common.css">
   <style>
     :root {
       --brand-primary: #DF3314;
@@ -97,18 +98,15 @@
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-dark top-nav p-3 shadow-sm">
-    <div class="container d-flex justify-content-between">
-      <span class="navbar-brand fw-bold" data-i18n="brand_title">Vendora Support Hub</span>
-      <div class="d-flex gap-2 align-items-center">
-        <div class="btn-group btn-group-sm" role="group" aria-label="Language switch">
-          <button id="langSvBtn" type="button" class="btn btn-outline-light" onclick="setLanguage('sv')">🇸🇪 Svenska</button>
-          <button id="langEnBtn" type="button" class="btn btn-outline-light" onclick="setLanguage('en')">🇬🇧 English</button>
-        </div>
-        <div id="topActions" class="d-flex gap-2"></div>
+  <header class="vendora-header">
+    <div class="vendora-header-inner">
+      <a href="/" class="vendora-brandmark"><img src="/vendora-logo-black.png" alt="Vendora Nordic"></a>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button id="langToggle" type="button" class="vendora-lang-toggle"></button>
+        <div id="topActions" style="display:flex;gap:8px;"></div>
       </div>
     </div>
-  </nav>
+  </header>
 
   <div class="container mt-4">
     <ul class="nav nav-tabs mb-4 border-0 shadow-sm bg-white rounded main-tabs" id="mainTabs">
@@ -366,10 +364,8 @@
         el.setAttribute('placeholder', tr(el.getAttribute('data-i18n-placeholder')));
       });
       document.getElementById('ticketContainer').innerText = tr('loading_tickets');
-      document.getElementById('langSvBtn').classList.toggle('btn-light', currentLang === 'sv');
-      document.getElementById('langSvBtn').classList.toggle('btn-outline-light', currentLang !== 'sv');
-      document.getElementById('langEnBtn').classList.toggle('btn-light', currentLang === 'en');
-      document.getElementById('langEnBtn').classList.toggle('btn-outline-light', currentLang !== 'en');
+      const toggle = document.getElementById('langToggle');
+      if (toggle) toggle.textContent = currentLang === 'sv' ? '🇬🇧 English' : '🇸🇪 Svenska';
     }
     function setLanguage(lang) {
       currentLang = lang === 'en' ? 'en' : 'sv';
@@ -378,6 +374,9 @@
       applyI18n();
       refresh();
     }
+    document.getElementById('langToggle').addEventListener('click', () => {
+      setLanguage(currentLang === 'sv' ? 'en' : 'sv');
+    });
 
     const esc = (s) => String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     let activeId = null;
@@ -427,9 +426,8 @@
     function renderTopActions() {
       const actions = [];
       if (isAdminUser) {
-        actions.push(`<a href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">${esc(tr('admin'))}</a>`);
+        actions.push(`<a href="/admin" class="vendora-btn vendora-btn-secondary" style="font-size:13px;padding:10px 16px;">${esc(tr('admin'))}</a>`);
       }
-      actions.push(`<a href="/auth/logout" class="btn btn-outline-light btn-sm fw-bold shadow-sm">${esc(tr('logout'))}</a>`);
       document.getElementById('topActions').innerHTML = actions.join('');
     }
 
